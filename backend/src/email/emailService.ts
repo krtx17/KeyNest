@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer';
 import { config } from '../config/index.ts';
 import { logger } from '../middleware/redactionLogger.ts';
 import { AppError } from '../middleware/errorHandler.ts';
@@ -27,10 +28,47 @@ export class EmailService {
     if (config.EMAIL_PROVIDER === 'resend' && config.RESEND_API_KEY) {
       return true;
     }
-    if (config.EMAIL_PROVIDER === 'smtp' && config.SMTP_HOST && config.SMTP_USER) {
+    if ((config.EMAIL_PROVIDER === 'smtp' || Boolean(config.SMTP_HOST || config.SMTP_USER)) && config.SMTP_USER && config.SMTP_PASS) {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Sends an email using SMTP (e.g. Gmail SMTP, Mailgun, SendGrid).
+   */
+  private static async sendViaSmtp(params: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+  }): Promise<{ messageId: string }> {
+    try {
+      const port = config.SMTP_PORT || 587;
+      const transporter = nodemailer.createTransport({
+        host: config.SMTP_HOST || 'smtp.gmail.com',
+        port,
+        secure: port === 465,
+        auth: {
+          user: config.SMTP_USER,
+          pass: config.SMTP_PASS,
+        },
+      });
+
+      const info = await transporter.sendMail({
+        from: config.RESEND_FROM_EMAIL || config.SMTP_USER,
+        to: params.to,
+        subject: params.subject,
+        text: params.text,
+        html: params.html,
+      });
+
+      logger.info(`Email delivered via SMTP to ${params.to}: ${info.messageId}`);
+      return { messageId: info.messageId };
+    } catch (err: any) {
+      logger.error('SMTP email delivery failed:', err);
+      throw new AppError(502, 'EMAIL_SEND_FAILED', `Failed to send email via SMTP: ${err.message}`);
+    }
   }
 
   /**
@@ -176,6 +214,16 @@ For your protection, this email does NOT contain passwords, master keys, or acco
         logger.error('Unexpected error sending email:', err);
         throw new AppError(502, 'EMAIL_SEND_FAILED', 'Failed to send invitation email.');
       }
+    }
+
+    // Live SMTP delivery
+    if ((config.EMAIL_PROVIDER === 'smtp' || Boolean(config.SMTP_HOST || config.SMTP_USER)) && config.SMTP_USER && config.SMTP_PASS) {
+      return await this.sendViaSmtp({
+        to: params.recipientEmail,
+        subject,
+        text,
+        html,
+      });
     }
 
     throw new AppError(
@@ -327,6 +375,16 @@ IMPORTANT SECURITY NOTICE:
       }
     }
 
+    // Live SMTP delivery
+    if ((config.EMAIL_PROVIDER === 'smtp' || Boolean(config.SMTP_HOST || config.SMTP_USER)) && config.SMTP_USER && config.SMTP_PASS) {
+      return await this.sendViaSmtp({
+        to: params.recipientEmail,
+        subject,
+        text,
+        html,
+      });
+    }
+
     throw new AppError(
       503,
       'EMAIL_DELIVERY_NOT_CONFIGURED',
@@ -421,6 +479,17 @@ If you did NOT make this change, please contact your administrator or support im
         logger.error('Failed to dispatch password changed notification email:', err);
       }
     }
+
+    // Live SMTP delivery
+    if ((config.EMAIL_PROVIDER === 'smtp' || Boolean(config.SMTP_HOST || config.SMTP_USER)) && config.SMTP_USER && config.SMTP_PASS) {
+      return await this.sendViaSmtp({
+        to: params.recipientEmail,
+        subject,
+        text,
+        html,
+      });
+    }
+
     return null;
   }
 

@@ -437,12 +437,15 @@ export class AuthService {
    * Rate-limits requests and does not reveal whether the email exists.
    */
   static async requestPasswordReset(params: { email: string; ip?: string }): Promise<{ success: boolean; message: string }> {
-    if (!EmailService.isConfigured()) {
-      throw new AppError(
-        503,
-        'EMAIL_DELIVERY_NOT_CONFIGURED',
-        'Email delivery is not configured on the server. Please configure an email provider (such as RESEND_API_KEY) in the environment settings to send reset links.'
-      );
+    const isConfigured = EmailService.isConfigured();
+    if (!isConfigured) {
+      if (config.NODE_ENV === 'production') {
+        throw new AppError(
+          503,
+          'EMAIL_DELIVERY_NOT_CONFIGURED',
+          'Email delivery is not configured on the server. Please configure an email provider (such as RESEND_API_KEY) in the environment settings to send reset links.'
+        );
+      }
     }
 
     const db = getDatabase();
@@ -485,15 +488,19 @@ export class AuthService {
       [resetId, user.id, normalizedEmail, tokenHash, expiresAt, now.toISOString()]
     );
 
-    await EmailService.sendPasswordResetLink({
-      recipientEmail: user.email,
-      resetToken,
-      expiresAt,
-    });
+    if (isConfigured) {
+      await EmailService.sendPasswordResetLink({
+        recipientEmail: user.email,
+        resetToken,
+        expiresAt,
+      });
+    }
 
     return {
       success: true,
       message: genericMessage,
+      resetToken: !isConfigured ? resetToken : undefined,
+      resetUrl: !isConfigured ? `${config.APP_URL}/?resetToken=${encodeURIComponent(resetToken)}` : undefined,
     };
   }
 

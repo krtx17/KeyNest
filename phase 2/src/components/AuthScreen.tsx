@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Info,
+  Copy,
 } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
@@ -22,6 +23,7 @@ export const AuthScreen: React.FC = () => {
     resetPassword,
     pendingResetToken,
     setPendingResetToken,
+    showToast,
   } = useVault();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'reset'>(() => {
@@ -282,27 +284,69 @@ export const AuthScreen: React.FC = () => {
 
         {/* VIEW 1: FORGOT PASSWORD (Link Sent Confirmation) */}
         {mode === 'forgot' && resetSentSuccess ? (
-          <div className="space-y-5 text-left animate-in fade-in-50 duration-150">
-            <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2">
-              <div className="flex items-center gap-2 text-indigo-900 font-semibold text-sm">
-                <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-                <span>Check your inbox</span>
+          <div className="space-y-4 text-left animate-in fade-in-50 duration-150">
+            {pendingResetToken ? (
+              <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-3">
+                <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Password Reset Ready</span>
+                </div>
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  Your secure password reset link for <strong className="font-semibold text-emerald-950">{email}</strong> is ready. You can reset your password immediately:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('reset');
+                    setResetSentSuccess(false);
+                    setErrorMessage('');
+                    setSuccessMessage('');
+                  }}
+                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
+                >
+                  <span>Reset Password Now &rarr;</span>
+                </button>
+                <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const resetUrl = `${window.location.origin}/?resetToken=${encodeURIComponent(pendingResetToken)}`;
+                      navigator.clipboard?.writeText(resetUrl);
+                      showToast({
+                        title: 'Link copied',
+                        message: 'Password reset link copied to clipboard.',
+                        type: 'success',
+                      });
+                    }}
+                    className="text-[11px] font-medium text-emerald-800 hover:text-emerald-950 underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy reset link URL</span>
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-indigo-700 leading-relaxed">
-                If an account exists for <strong className="font-semibold text-indigo-900">{email}</strong>, we have sent a secure, single-use password reset link.
-              </p>
-              <p className="text-[11px] text-indigo-600">
-                The link expires in 30 minutes and can only be used once. Please check your spam folder if you do not see it shortly.
-              </p>
-            </div>
+            ) : (
+              <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-indigo-900 font-semibold text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                  <span>Check your inbox</span>
+                </div>
+                <p className="text-xs text-indigo-700 leading-relaxed">
+                  If an account exists for <strong className="font-semibold text-indigo-900">{email}</strong>, we have sent a secure, single-use password reset link.
+                </p>
+                <p className="text-[11px] text-indigo-600">
+                  The link expires in 30 minutes and can only be used once. Please check your spam folder if you do not see it shortly.
+                </p>
+              </div>
+            )}
 
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-left">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                 <Info className="w-3.5 h-3.5 text-slate-500" />
-                <span>Vault Encryption Notice</span>
+                <span>Direct Gmail Inbox Setup</span>
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Resetting your sign-in password restores account access. If you enabled separate zero-knowledge encryption for your vault, your emergency recovery key or master passphrase is still required to decrypt saved logins.
+                To receive emails directly in your Gmail inbox, add your Gmail SMTP credentials or Resend API key to <code className="px-1 py-0.5 bg-slate-200/60 rounded text-slate-700 font-mono">backend/.env</code>.
               </p>
             </div>
 

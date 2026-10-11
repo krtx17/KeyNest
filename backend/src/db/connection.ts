@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import path from 'node:path';
 import { SCHEMA_SQL } from './schema.ts';
 import { config } from '../config/index.ts';
 import { logger } from '../middleware/redactionLogger.ts';
@@ -66,7 +67,8 @@ let dbInstance: DatabaseConnection | null = null;
 
 export function getDatabase(customPath?: string): DatabaseConnection {
   if (!dbInstance) {
-    const dbPath = customPath || (config.USE_IN_MEMORY_DB ? ':memory:' : 'vaultshare.sqlite');
+    const defaultPersistentPath = path.resolve(import.meta.dirname, '../../vaultshare.sqlite');
+    const dbPath = customPath || (config.USE_IN_MEMORY_DB ? ':memory:' : defaultPersistentPath);
     dbInstance = new SqliteDatabase(dbPath);
     dbInstance.migrate();
   }
