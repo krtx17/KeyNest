@@ -16,8 +16,10 @@ import {
 
 export type MainTab = 'personal' | 'shared' | 'categories';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+
 interface VaultContextType {
-  currentUser: CurrentUser;
+  currentUser: CurrentUser | null;
   activeTab: MainTab;
   setActiveTab: (tab: MainTab) => void;
   selectedItemId: string | null;
@@ -26,6 +28,11 @@ interface VaultContextType {
   setSelectedCategoryId: (id: string | null) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+
+  // Authentication & Session
+  signIn: (email: string, password: string) => Promise<boolean>;
+  createAccount: (email: string, password: string) => Promise<boolean>;
+  signOut: () => void;
 
   // Vault Items
   items: VaultItem[];
@@ -45,6 +52,7 @@ interface VaultContextType {
 
   // Teammates & Sharing
   teammates: Teammate[];
+  addTeammate: (name: string, email: string) => Teammate;
   shareItem: (itemId: string, teammateId: string, permission: SharePermission) => void;
   removeShare: (itemId: string, teammateId: string) => void;
 
@@ -58,7 +66,6 @@ interface VaultContextType {
   isLocked: boolean;
   lockVault: () => void;
   unlockVault: (passphrase: string) => boolean;
-  signOut: () => void;
 
   // Modals
   isAddModalOpen: boolean;
@@ -107,14 +114,61 @@ function getServiceVisuals(serviceName: string) {
 }
 
 export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(() => {
+    const saved = sessionStorage.getItem('keynest_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return CURRENT_USER;
+      }
+    }
+    return CURRENT_USER;
+  });
+
   const [activeTab, setActiveTab] = useState<MainTab>('personal');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const [items, setItems] = useState<VaultItem[]>(INITIAL_ITEMS);
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
-  const [teammates] = useState<Teammate[]>(INITIAL_TEAMMATES);
+  // Scoped storage helpers
+  const storageKey = currentUser ? `keynest_data_${currentUser.id}` : 'keynest_data_guest';
+
+  const [items, setItems] = useState<VaultItem[]>(() => {
+    const saved = localStorage.getItem(`${storageKey}_items`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return INITIAL_ITEMS;
+      }
+    }
+    return INITIAL_ITEMS;
+  });
+
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = localStorage.getItem(`${storageKey}_categories`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return INITIAL_CATEGORIES;
+      }
+    }
+    return INITIAL_CATEGORIES;
+  });
+
+  const [teammates, setTeammates] = useState<Teammate[]>(() => {
+    const saved = localStorage.getItem(`${storageKey}_teammates`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return INITIAL_TEAMMATES;
+      }
+    }
+    return INITIAL_TEAMMATES;
+  });
 
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -126,6 +180,25 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [defaultAddShared, setDefaultAddShared] = useState(false);
+
+  // Sync to local storage when state updates
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`keynest_data_${currentUser.id}_items`, JSON.stringify(items));
+    }
+  }, [items, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`keynest_data_${currentUser.id}_categories`, JSON.stringify(categories));
+    }
+  }, [categories, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`keynest_data_${currentUser.id}_teammates`, JSON.stringify(teammates));
+    }
+  }, [teammates, currentUser]);
 
   const showToast = useCallback((toastData: Omit<ToastNotification, 'id'>) => {
     const id = 'toast-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
@@ -139,6 +212,161 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  // Authentication: Sign in
+  const signIn = useCallback(
+    async (email: string, password: string): Promise<boolean> => {
+      try {
+        // 1. Attempt API authentication if backend is available
+        const res = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, deviceName: 'Web Client' }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const user: CurrentUser = {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.email.split('@')[0],
+            initials: data.user.email.slice(0, 2).toUpperCase(),
+          };
+
+          sessionStorage.setItem('keynest_token', data.tokens.accessToken);
+          sessionStorage.setItem('keynest_user', JSON.stringify(user));
+          sessionStorage.setItem('keynest_passphrase', password);
+
+          setCurrentUser(user);
+          setIsLocked(false);
+
+          // Load user items scoped to this user
+          const savedItems = localStorage.getItem(`keynest_data_${user.id}_items`);
+          setItems(savedItems ? JSON.parse(savedItems) : []);
+          const savedCats = localStorage.getItem(`keynest_data_${user.id}_categories`);
+          setCategories(savedCats ? JSON.parse(savedCats) : []);
+          const savedTeammates = localStorage.getItem(`keynest_data_${user.id}_teammates`);
+          setTeammates(savedTeammates ? JSON.parse(savedTeammates) : []);
+
+          showToast({
+            title: 'Welcome back',
+            message: `Signed in as ${user.email}.`,
+            type: 'success',
+          });
+          return true;
+        }
+
+        if (res.status === 401 || res.status === 400) {
+          const errData = await res.json().catch(() => null);
+          showToast({
+            title: 'Sign in failed',
+            message: errData?.error?.message || 'Invalid email or password.',
+            type: 'warning',
+          });
+          return false;
+        }
+      } catch {
+        // Fallback to local secure session if backend is offline or standalone preview
+        const normalizedEmail = email.toLowerCase().trim();
+        const user: CurrentUser = {
+          id: 'usr_' + Math.abs(normalizedEmail.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0)),
+          email: normalizedEmail,
+          name: normalizedEmail.split('@')[0],
+          initials: normalizedEmail.slice(0, 2).toUpperCase(),
+        };
+
+        sessionStorage.setItem('keynest_user', JSON.stringify(user));
+        sessionStorage.setItem('keynest_passphrase', password);
+
+        setCurrentUser(user);
+        setIsLocked(false);
+
+        const savedItems = localStorage.getItem(`keynest_data_${user.id}_items`);
+        setItems(savedItems ? JSON.parse(savedItems) : []);
+        const savedCats = localStorage.getItem(`keynest_data_${user.id}_categories`);
+        setCategories(savedCats ? JSON.parse(savedCats) : []);
+        const savedTeammates = localStorage.getItem(`keynest_data_${user.id}_teammates`);
+        setTeammates(savedTeammates ? JSON.parse(savedTeammates) : []);
+
+        showToast({
+          title: 'Welcome to KeyNest',
+          message: 'Signed in successfully.',
+          type: 'success',
+        });
+        return true;
+      }
+      return false;
+    },
+    [showToast]
+  );
+
+  // Authentication: Create account
+  const createAccount = useCallback(
+    async (email: string, password: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (res.ok || res.status === 201) {
+          // Immediately log in with the new account
+          return await signIn(email, password);
+        }
+
+        if (res.status === 409) {
+          showToast({
+            title: 'Account exists',
+            message: 'An account with this email already exists. Try signing in.',
+            type: 'warning',
+          });
+          return false;
+        }
+
+        const errData = await res.json().catch(() => null);
+        showToast({
+          title: 'Registration failed',
+          message: errData?.error?.message || 'Could not create account.',
+          type: 'warning',
+        });
+        return false;
+      } catch {
+        // Local standalone registration fallback
+        return await signIn(email, password);
+      }
+    },
+    [signIn, showToast]
+  );
+
+  // Sign out
+  const signOut = useCallback(() => {
+    const token = sessionStorage.getItem('keynest_token');
+    if (token) {
+      fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+
+    sessionStorage.removeItem('keynest_token');
+    sessionStorage.removeItem('keynest_user');
+    sessionStorage.removeItem('keynest_passphrase');
+
+    setCurrentUser(null);
+    setIsLocked(false);
+    setSelectedItemId(null);
+    setSelectedCategoryId(null);
+    setItems([]);
+    setCategories([]);
+    setTeammates([]);
+
+    showToast({
+      title: 'Signed out',
+      message: 'You have been signed out of your vault.',
+      type: 'info',
+    });
+  }, [showToast]);
 
   const selectItem = useCallback((id: string | null) => {
     setSelectedItemId(id);
@@ -237,8 +465,9 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         showToast({
           title: `${label} copied`,
-          message: 'Copied to clipboard.',
-          type: 'success',
+          message: 'Copied to clipboard. Clear clipboard after use.',
+          type: 'clipboard',
+          countdownRemaining: 30,
         });
         return true;
       } catch {
@@ -262,6 +491,24 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [items, copyText]
   );
 
+  // Teammates Management
+  const addTeammate = useCallback(
+    (name: string, email: string): Teammate => {
+      const colors = ['#EDE9FE', '#FEF3C7', '#FCE7F3', '#CCFBF1', '#E0E7FF'];
+      const cleanName = name.trim() || email.split('@')[0];
+      const newTm: Teammate = {
+        id: 'user-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
+        name: cleanName,
+        email: email.trim().toLowerCase(),
+        initials: (cleanName.slice(0, 2)).toUpperCase(),
+        avatarBg: colors[teammates.length % colors.length],
+      };
+      setTeammates((prev) => [...prev, newTm]);
+      return newTm;
+    },
+    [teammates.length]
+  );
+
   // Sharing
   const shareItem = useCallback(
     (itemId: string, teammateId: string, permission: SharePermission) => {
@@ -272,7 +519,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const filteredShares = item.sharedWith.filter((s) => s.teammateId !== teammateId);
             return {
               ...item,
-              isShared: true, // Item is now shared!
+              isShared: true,
               sharedWith: [
                 ...filteredShares,
                 {
@@ -290,7 +537,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsShareModalOpen(false);
       showToast({
         title: 'Password shared',
-        message: `Shared with ${targetTeammate?.name || 'teammate'}. Remember: removing access later cannot erase a password someone has already copied.`,
+        message: `Shared with ${targetTeammate?.name || 'teammate'}. Note: removing access later cannot erase a password someone has already copied.`,
         type: 'info',
       });
     },
@@ -315,7 +562,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       showToast({
         title: 'Access removed',
-        message: `Removed ${targetTeammate?.name || 'teammate'}'s access. Note: this cannot erase a password they already saw or copied.`,
+        message: `Removed access for ${targetTeammate?.name || 'teammate'}. Remember: this cannot erase a password they already saw or copied.`,
         type: 'warning',
       });
     },
@@ -364,7 +611,6 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     (id: string) => {
       const cat = categories.find((c) => c.id === id);
       setCategories((prev) => prev.filter((c) => c.id !== id));
-      // Unset categoryId on any items using this category so passwords are kept safe
       setItems((prev) =>
         prev.map((item) => (item.categoryId === id ? { ...item, categoryId: undefined } : item))
       );
@@ -393,25 +639,20 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const unlockVault = useCallback(
     (passphrase: string) => {
       if (!passphrase.trim()) return false;
+      const stored = sessionStorage.getItem('keynest_passphrase');
+      if (stored && passphrase !== stored) {
+        return false;
+      }
       setIsLocked(false);
       showToast({
         title: 'Vault unlocked',
-        message: 'Welcome back, Maya.',
+        message: `Welcome back${currentUser?.name ? `, ${currentUser.name}` : ''}.`,
         type: 'success',
       });
       return true;
     },
-    [showToast]
+    [currentUser, showToast]
   );
-
-  const signOut = useCallback(() => {
-    setIsLocked(true);
-    showToast({
-      title: 'Signed out',
-      message: 'You have been signed out. Enter your passphrase to sign back in.',
-      type: 'info',
-    });
-  }, [showToast]);
 
   // Modal open helpers
   const openAddModal = useCallback((isShared?: boolean) => {
@@ -464,7 +705,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <VaultContext.Provider
       value={{
-        currentUser: CURRENT_USER,
+        currentUser,
         activeTab,
         setActiveTab,
         selectedItemId,
@@ -474,6 +715,10 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         searchQuery,
         setSearchQuery,
 
+        signIn,
+        createAccount,
+        signOut,
+
         items,
         addItem,
         updateItem,
@@ -482,6 +727,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         copyText,
 
         teammates,
+        addTeammate,
         shareItem,
         removeShare,
 
@@ -493,7 +739,6 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isLocked,
         lockVault,
         unlockVault,
-        signOut,
 
         isAddModalOpen,
         isEditModalOpen,

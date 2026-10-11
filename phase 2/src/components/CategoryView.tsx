@@ -63,58 +63,79 @@ export const CategoryView: React.FC = () => {
         </button>
       </div>
 
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {categories.map((cat) => {
-          const count = items.filter((i) => i.categoryId === cat.id).length;
-          const isSelected = activeCategoryId === cat.id;
-
-          return (
-            <div
-              key={cat.id}
-              onClick={() => setActiveCategoryId(cat.id)}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                isSelected
-                  ? 'bg-indigo-50/50 border-indigo-300 shadow-xs ring-1 ring-indigo-200'
-                  : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-              }`}
+      {/* Categories Grid or Empty State */}
+      {categories.length === 0 ? (
+        <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-200 space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+            <Folder className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">No categories created yet</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Categories are optional. Create your own categories like "Work", "Community", or "Personal" to organize your logins.
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={() => openCategoryModal()}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className="w-3.5 h-3.5 rounded-full shrink-0"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <h3 className="font-bold text-sm text-slate-900 truncate">{cat.name}</h3>
-                </div>
-                <div className="flex items-center gap-1 opacity-80 hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => openCategoryModal(cat)}
-                    className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-md transition-colors"
-                    title="Rename category"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(cat)}
-                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded-md transition-colors"
-                    title="Delete category"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>Create your first category</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {categories.map((cat) => {
+            const count = items.filter((i) => i.categoryId === cat.id).length;
+            const isSelected = activeCategoryId === cat.id;
 
-              <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
-                <span>{count} {count === 1 ? 'password' : 'passwords'}</span>
-                {isSelected && (
-                  <span className="text-indigo-600 font-semibold text-[11px]">Viewing →</span>
-                )}
+            return (
+              <div
+                key={cat.id}
+                onClick={() => setActiveCategoryId(cat.id)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+                  isSelected
+                    ? 'bg-indigo-50/50 border-indigo-300 shadow-xs ring-1 ring-indigo-200'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <h3 className="font-bold text-sm text-slate-900 truncate">{cat.name}</h3>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-80 hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => openCategoryModal(cat)}
+                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-md transition-colors"
+                      title="Rename category"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(cat)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded-md transition-colors"
+                      title="Delete category"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
+                  <span>{count} {count === 1 ? 'password' : 'passwords'}</span>
+                  {isSelected && (
+                    <span className="text-indigo-600 font-semibold text-[11px]">Viewing →</span>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Passwords in selected category */}
       {selectedCategory && (

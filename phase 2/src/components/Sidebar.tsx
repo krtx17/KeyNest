@@ -166,24 +166,26 @@ export const Sidebar: React.FC = () => {
         </button>
 
         {/* User Card with Sign out */}
-        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
-              {currentUser.initials}
+        {currentUser && (
+          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                {currentUser.initials}
+              </div>
+              <div className="truncate">
+                <p className="text-xs font-semibold text-slate-800 truncate">{currentUser.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+              </div>
             </div>
-            <div className="truncate">
-              <p className="text-xs font-semibold text-slate-800 truncate">{currentUser.name}</p>
-              <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
-            </div>
+            <button
+              onClick={signOut}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={signOut}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
-            title="Sign out"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        )}
       </div>
     </aside>
   );

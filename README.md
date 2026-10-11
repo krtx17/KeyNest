@@ -1,4 +1,4 @@
-# KeyNest — Shared Credential Vault
+# KeyNest — Personal & Shared Credential Vault
 
 KeyNest is a focused, easy-to-use credential vault designed for personal accounts and startup/community teams. It provides private personal password storage, team password sharing with granular permissions, and custom categories to organize logins.
 
@@ -8,43 +8,54 @@ KeyNest is a focused, easy-to-use credential vault designed for personal account
 
 ![Keynest Architecture Overview](docs/images/architecture-overview.svg)
 
-The application consists of a responsive web frontend and a modular REST API backend designed to be platform-independent for future native mobile applications.
+The application consists of a responsive web frontend, a platform-independent modular REST API backend, and an Android client build configuration:
+
+- **Web Frontend (`phase 2/`)**: React 19 + TypeScript + Vite 8.
+- **Backend API (`backend/`)**: Node.js 24 + Express 4.21 + Native SQLite engine (`/api/v1`).
+- **Android Client (`android/`)**: Jetpack Compose native Android build configuration.
 
 ---
 
 ## 2. Implemented Features
 
+### Clean First-Time User Experience
+- **Zero Demo Records**: No sample credentials, prefilled passwords, demo users, or fake teammates in the shipped application.
+- **Sign In & Account Creation**: First screen offers clean email/password sign-in and new account registration with everyday validation.
+- **Empty Vault Start**: Every new user starts with an empty vault and a clear primary action: **Add password**.
+- **Transparent Security**: Clear notice that zero-knowledge encryption prevents insecure password resets—only the user holds their master vault keys.
+
 ### Personal Passwords
-- **Private Vault**: A private place for personal accounts (Instagram, LinkedIn, GitHub, etc.).
+- **Private Vault**: A private place for personal logins.
 - **Full Credential Lifecycle**: Add, view, edit, delete, search, and copy logins with 1 click.
 - **Hidden Passwords**: Passwords remain concealed by default (`••••••••••••`) until explicitly revealed.
-- **Clipboard Safety**: Copy button copies password with friendly feedback and best-effort clipboard clearance.
+- **Clipboard Safety**: Copy button copies password with friendly feedback and 30-second clipboard reminder.
 
 ### Shared Passwords
 - **Team Logins**: A separate, dedicated section for credentials shared with teammates.
 - **Access Delegation**: Share logins with specific teammates and choose permissions:
   - `Can view & copy`: Use the login without editing details.
   - `Can edit`: Update login details and credentials.
+- **Dynamic Teammates**: Add teammates by name and email directly when sharing.
 - **Access Revocation**: Remove a teammate's access at any time with one click.
 - **Access Visibility**: Clearly shows all teammates who have access to each shared login.
 - **Real-World Security Notice**: Explicit reminder displayed in the UI:
   > *"Removing access cannot erase a password someone has already seen or copied. If a teammate leaves, change this password on the website to keep the account safe."*
 
 ### My Categories
-- **User-Defined Categories**: Create, rename, and delete custom categories (e.g., *Instagram*, *Work*, *Community*, *Social Media*).
+- **User-Defined Categories**: Create, rename, and delete custom categories (e.g., *Work*, *Community*, *Personal*). Categories are user-created and optional.
 - **Unified Organization**: Categories apply seamlessly to both personal and shared logins.
 - **Category Filtering**: Filter logins by category pills in Personal/Shared views or manage them in the Categories tab.
-- **Safe Deletion**: Deleting a category moves associated logins to uncategorized rather than deleting user passwords.
+- **Safe Deletion**: Deleting a category moves associated logins to uncategorized rather than deleting passwords.
 
 ### Account & Safety Essentials
-- **Passphrase Unlock**: Clean lock screen to protect vault contents on the device.
 - **Lock Vault**: One-click lock button in header/sidebar (`Cmd/Ctrl + L`).
-- **Sign Out**: Simple sign out control in user profile.
+- **Passphrase Unlock**: Clean lock screen to protect vault contents on the device.
+- **Sign Out**: Simple sign out control to safely clear active session tokens.
 
 ### Hardened Backend REST API
 - **Modular Monolith**: Express + TypeScript backend on Node 24 (`/api/v1`).
 - **Secret Redaction**: Middleware automatically redacts passwords, tokens, and Authorization headers from logs.
-- **Session Authentication**: Salted Scrypt password hashing, JWT access tokens, refresh token rotation, and remote device revocation.
+- **Session Authentication**: PBKDF2 password hashing, JWT access tokens, refresh token rotation, and remote device revocation.
 - **Step-Up Elevation Guard**: Sensitive operations require recent re-authentication ($\le$ 2 minute TTL).
 - **Tenant Isolation**: Server-side authorization preventing cross-user and cross-workspace object access (BOLA/IDOR protection).
 
@@ -82,8 +93,10 @@ The backend schema strictly partitions plaintext operational metadata from sensi
 
 ## 6. Setup, Run & Test Instructions
 
-### Backend (REST API)
+### Quick Launch on Windows (Root Directory)
+Double-click `start.bat` in the project root. It will check prerequisites, start both servers in separate windows, and launch `http://localhost:3000` in your browser.
 
+### Backend (REST API)
 ```bash
 # Navigate to backend directory
 cd backend
@@ -91,7 +104,7 @@ cd backend
 # Install dependencies
 npm install
 
-# Run 49 unit and integration tests
+# Run 57 automated tests across 9 suites (100% pass)
 npm test
 
 # Run strict TypeScript typecheck
@@ -108,13 +121,15 @@ curl http://localhost:4000/api/v1/health
 ```
 
 ### Frontend (Web UI)
-
 ```bash
 # Navigate to frontend directory
 cd "phase 2"
 
 # Install dependencies
 npm install --legacy-peer-deps
+
+# Run typecheck lint
+npm run lint
 
 # Build for production
 npm run build
@@ -125,57 +140,58 @@ npm run dev
 
 ---
 
-## 7. Project Map
+## 7. Vercel Web Deployment
 
-```
-personal_vault/
-├── backend/                       # Node.js 24 + Express REST API
-│   ├── src/                       # Backend source code
-│   │   ├── api/                   # Route handlers (/auth, /items, /workspaces, /sharing)
-│   │   ├── auth/                  # Scrypt, JWT, TOTP, and session management
-│   │   ├── db/                    # SQLite connection & 14-table schema migrations
-│   │   ├── items/                 # Item service & revision locking
-│   │   ├── middleware/            # Redaction logger, error handling & RBAC
-│   │   └── sharing/               # Key envelope distribution & revocation
-│   ├── tests/                     # 49 test suites (100% pass)
-│   ├── .env.example               # Safe backend environment variables template
-│   └── package.json
-│
-├── phase 1/                       # Architecture, PRD, TRD, and UI reference SVGs
-│   ├── trd.md                     # Technical requirements document
-│   ├── prd.md                     # Product requirements document
-│   └── ui-*.svg                   # UI screen layout design references
-│
-├── phase 2/                       # React 19 + Vite frontend application
-│   ├── src/                       # Frontend source code
-│   │   ├── components/            # Clean UI views (VaultHome, CredentialDetail, CategoryView)
-│   │   ├── context/               # VaultContext state provider
-│   │   ├── data/                  # Initial demo data seeds
-│   │   └── types/                 # Shared TypeScript models
-│   ├── .env.example               # Safe frontend environment variables template
-│   └── package.json
-│
-├── docs/                          # Documentation assets
-│   └── images/                    # Architecture, data model & lifecycle SVG diagrams
-│
-├── .gitignore                     # Repository-level ignore rules
-├── tasks-and-phases.md            # Detailed phase tracking and completion criteria
-└── walkthrough.md                 # Complete technical walkthrough and implementation details
-```
+The web frontend is pre-configured for deployment on **Vercel**:
+
+### Deployment Steps
+1. Import the repository into your Vercel account.
+2. Set the build settings:
+   - **Framework Preset**: `Vite`
+   - **Build Command**: `cd "phase 2" && npm run build` (or `npm run build` if Root Directory is set to `phase 2`)
+   - **Output Directory**: `phase 2/dist` (or `dist` if Root Directory is set to `phase 2`)
+3. Configure the required environment variable in Vercel Project Settings:
+   - `VITE_API_BASE_URL`: URL of your deployed KeyNest backend API (e.g. `https://api.yourdomain.com/api/v1`).
+4. Trigger the deployment. SPA routing rewrites are pre-configured in `vercel.json`.
+
+> **Note on Backend Hosting:** The KeyNest backend uses SQLite (`vaultshare.sqlite`). Vercel's serverless functions use an ephemeral read-only filesystem. For persistent data, host the backend API on a persistent service (such as Render, Railway, Fly.io, DigitalOcean, or a VPS), and point `VITE_API_BASE_URL` on Vercel to that service.
 
 ---
 
-## 8. Current Limitations & Demo Behavior
+## 8. Android APK Build Plan
 
-- **Initial Demo Seed**: For demonstration convenience, the frontend loads realistic sample accounts (Instagram, LinkedIn, GitHub, YouTube, Twitter, Mailchimp) and teammates (Arjun, Nina, Marcus).
-- **Database Engine**: The local backend uses `node:sqlite` for zero-dependency execution. PostgreSQL is planned for production deployment.
-- **Client-Side Cryptography**: In-memory credential viewing is implemented. Client-side WebCrypto / libsodium integration for zero-knowledge end-to-end device key agreement is planned for subsequent phases.
-- **Mobile Clients**: Native iOS and Android apps are planned; the backend API is built platform-independent to support them.
+The native Android project is structured in `android/` using Jetpack Compose and AndroidX Security:
+
+- **Application ID**: `com.keynest.vault`
+- **Application Name**: `KeyNest`
+- **Minimum SDK**: Android 7.0 (API 24)
+- **Target SDK**: Android 14 (API 34)
+
+### How to Build the APK
+1. **Using Android Studio**:
+   - Open the `android/` directory in Android Studio.
+   - Sync Gradle dependencies.
+   - Select **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
+   - Output debug APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
+2. **Using Command Line (Gradle)**:
+   ```bash
+   cd android
+   ./gradlew assembleDebug
+   ```
+3. **Using Cloud CI (GitHub Actions)**:
+   - A GitHub Actions workflow is provided at `.github/workflows/android-build.yml`.
+   - On push to `main` with Android changes, GitHub Actions automatically compiles the APK using Ubuntu's pre-installed Java 17 and Android SDK.
+   - Download the built `app-debug.apk` directly from the GitHub Actions run summary.
+
+### Installation Steps on Device
+1. Transfer `app-debug.apk` to your Android device via USB, email, or Google Drive.
+2. Enable "Install from unknown sources" in Android Settings if prompted.
+3. Open the APK file and tap **Install**.
 
 ---
 
 ## 9. Security Note
 
-- **No Overstated Claims**: KeyNest does not claim third-party security audits, compliance certifications (SOC 2, ISO 27001), or end-to-end zero-knowledge encryption until full client-side crypto review is completed.
-- **Zero Plaintext Passwords**: Real website passwords and private keys are never stored in plaintext on the backend or written to logs.
+- **No Plaintext Credential Storage**: Passwords and keys are never stored in plaintext on the backend or written to logs.
+- **Zero-Knowledge Recovery Boundary**: Because only the user holds their master password, automatic password resets are not supported.
 - **Honest Access Boundary**: Revoking access blocks future server reads and sync, but cannot erase credentials already viewed or copied by a recipient.

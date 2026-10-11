@@ -193,7 +193,7 @@ export const AddEditModal: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. instagram.com"
+              placeholder="e.g. https://example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white"
@@ -208,7 +208,7 @@ export const AddEditModal: React.FC = () => {
             <input
               type="text"
               required
-              placeholder="e.g. maya@orbitstart.com"
+              placeholder="e.g. user@example.com or username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white"

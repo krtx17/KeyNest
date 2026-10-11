@@ -263,10 +263,10 @@ export const CredentialDetail: React.FC = () => {
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
-                    {currentUser.initials}
+                    {currentUser?.initials || 'U'}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 truncate">{currentUser.name} (You)</p>
+                    <p className="font-semibold text-slate-800 truncate">{currentUser?.name || 'You'} (You)</p>
                     <p className="text-[10px] text-slate-400">Owner</p>
                   </div>
                 </div>

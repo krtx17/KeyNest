@@ -22,8 +22,14 @@ export function createApp() {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Content-Security-Policy', "default-src 'self'");
-    res.setHeader('Access-Control-Allow-Origin', config.CORS_ORIGIN);
+    const reqOrigin = req.headers.origin;
+    if (config.CORS_ORIGIN === '*' || !config.CORS_ORIGIN) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin || '*');
+    } else if (reqOrigin && (reqOrigin === config.CORS_ORIGIN || reqOrigin.endsWith('.vercel.app') || reqOrigin.startsWith('http://localhost:'))) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', config.CORS_ORIGIN);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, If-Match');
 

@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">KeyNest</string>
+    <string name="tab_personal">Personal</string>
+    <string name="tab_shared">Shared</string>
+    <string name="tab_categories">Categories</string>
+    <string name="action_add_password">Add password</string>
+</resources>

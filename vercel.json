@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "framework": "vite",
+  "buildCommand": "cd \"phase 2\" && npm install && npm run build",
+  "outputDirectory": "phase 2/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

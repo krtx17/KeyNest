@@ -8,6 +8,8 @@ import {
   Eye,
   Edit2,
   Trash2,
+  Plus,
+  UserPlus,
 } from 'lucide-react';
 
 export const ShareAccessModal: React.FC = () => {
@@ -15,6 +17,7 @@ export const ShareAccessModal: React.FC = () => {
     items,
     selectedItemId,
     teammates,
+    addTeammate,
     isShareModalOpen,
     closeShareModal,
     shareItem,
@@ -27,11 +30,23 @@ export const ShareAccessModal: React.FC = () => {
     teammates[0]?.id || ''
   );
   const [permission, setPermission] = useState<SharePermission>('view_copy');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
 
   if (!isShareModalOpen || !item) return null;
 
-  const selectedTeammate = teammates.find((t) => t.id === selectedTeammateId);
   const isAlreadyShared = item.sharedWith.some((s) => s.teammateId === selectedTeammateId);
+
+  const handleAddNewTeammate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail.trim()) return;
+    const added = addTeammate(newName.trim(), newEmail.trim());
+    setSelectedTeammateId(added.id);
+    setNewEmail('');
+    setNewName('');
+    setShowAddForm(false);
+  };
 
   const handleShare = () => {
     if (!selectedTeammateId) return;
@@ -62,54 +77,121 @@ export const ShareAccessModal: React.FC = () => {
         </div>
 
         <div className="space-y-4">
-          {/* Step 1: Select Teammate */}
+          {/* Step 1: Select or Add Teammate */}
           <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              1. Select a teammate
-            </label>
-            <div className="space-y-1.5">
-              {teammates.map((tm) => {
-                const isSelected = selectedTeammateId === tm.id;
-                const shareRecord = item.sharedWith.find((s) => s.teammateId === tm.id);
-
-                return (
-                  <div
-                    key={tm.id}
-                    onClick={() => setSelectedTeammateId(tm.id)}
-                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                      isSelected
-                        ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-200 shadow-2xs'
-                        : 'bg-slate-50/50 border-slate-200/80 hover:bg-slate-50 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-slate-800 shrink-0"
-                        style={{ backgroundColor: tm.avatarBg }}
-                      >
-                        {tm.initials}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-800 truncate">{tm.name}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{tm.email}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {shareRecord ? (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                          Has access
-                        </span>
-                      ) : isSelected ? (
-                        <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                          <Check className="w-3 h-3 stroke-[3]" />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                1. Select teammate
+              </label>
+              {!showAddForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(true)}
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add teammate</span>
+                </button>
+              )}
             </div>
+
+            {/* Add Teammate Inline Form */}
+            {showAddForm && (
+              <form onSubmit={handleAddNewTeammate} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <p className="text-xs font-bold text-slate-800">Add a teammate to share with</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Teammate name (optional)"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                  <input
+                    type="email"
+                    required
+                    placeholder="teammate@example.com *"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddForm(false)}
+                    className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs"
+                  >
+                    Add & Select
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {teammates.length === 0 && !showAddForm ? (
+              <div className="p-4 rounded-2xl border border-dashed border-slate-200 text-center space-y-2">
+                <Users className="w-6 h-6 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500">No teammates added yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(true)}
+                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl inline-flex items-center gap-1.5"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Add your first teammate</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {teammates.map((tm) => {
+                  const isSelected = selectedTeammateId === tm.id;
+                  const shareRecord = item.sharedWith.find((s) => s.teammateId === tm.id);
+
+                  return (
+                    <div
+                      key={tm.id}
+                      onClick={() => setSelectedTeammateId(tm.id)}
+                      className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-200 shadow-2xs'
+                          : 'bg-slate-50/50 border-slate-200/80 hover:bg-slate-50 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-slate-800 shrink-0"
+                          style={{ backgroundColor: tm.avatarBg }}
+                        >
+                          {tm.initials}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-800 truncate">{tm.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{tm.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {shareRecord ? (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            Has access
+                          </span>
+                        ) : isSelected ? (
+                          <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Step 2: Choose Permission */}
@@ -193,8 +275,9 @@ export const ShareAccessModal: React.FC = () => {
             </button>
             <button
               type="button"
+              disabled={!selectedTeammateId}
               onClick={handleShare}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold shadow-xs transition-colors"
+              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors"
             >
               {isAlreadyShared ? 'Update permission' : 'Share access'}
             </button>

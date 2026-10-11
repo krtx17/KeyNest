@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
 import { useVault } from '../context/VaultContext';
-import { Lock, KeyRound, AlertCircle } from 'lucide-react';
+import { Lock, KeyRound, AlertCircle, LogOut } from 'lucide-react';
 
 export const LockScreen: React.FC = () => {
-  const { unlockVault, currentUser } = useVault();
+  const { unlockVault, currentUser, signOut } = useVault();
   const [passphrase, setPassphrase] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!passphrase.trim()) {
-      setErrorMsg('Please enter your passphrase.');
+      setErrorMsg('Please enter your master password to unlock.');
       return;
     }
 
     const ok = unlockVault(passphrase);
     if (!ok) {
-      setErrorMsg('Incorrect passphrase. Please try again.');
+      setErrorMsg('Incorrect master password. Please try again.');
     }
   };
 
@@ -30,10 +30,14 @@ export const LockScreen: React.FC = () => {
 
         <div className="space-y-1">
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Unlock your vault
+            Vault is locked
           </h1>
           <p className="text-xs text-slate-500">
-            Welcome back, {currentUser.name}. Enter your passphrase to access your passwords.
+            {currentUser?.email ? (
+              <>Signed in as <span className="font-semibold text-slate-700">{currentUser.email}</span>.</>
+            ) : (
+              'Enter your master password to access your vault.'
+            )}
           </p>
         </div>
 
@@ -47,14 +51,14 @@ export const LockScreen: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4 text-left">
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              Vault passphrase
+              Master password
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
                 autoFocus
-                placeholder="Enter passphrase (e.g. password123)"
+                placeholder="Enter master password"
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
                 className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white"
@@ -70,6 +74,17 @@ export const LockScreen: React.FC = () => {
             <span>Unlock vault</span>
           </button>
         </form>
+
+        <div className="pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={signOut}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1.5 transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign out / Switch account</span>
+          </button>
+        </div>
       </div>
     </div>
   );
