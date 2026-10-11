@@ -22,7 +22,7 @@ The application consists of a responsive web frontend, a platform-independent mo
 - **Zero Demo Records**: No sample credentials, prefilled passwords, demo users, or fake teammates in the shipped application.
 - **Sign In & Account Creation**: First screen offers clean email/password sign-in and new account registration with everyday validation.
 - **Empty Vault Start**: Every new user starts with an empty vault and a clear primary action: **Add password**.
-- **Transparent Security**: Clear notice that zero-knowledge encryption prevents insecure password resets—only the user holds their master vault keys.
+- **Transparent Security & Password Reset**: Secure sign-in password reset with single-use expiring email links, rate limits, and session revocation. Vault data encryption keys remain protected.
 
 ### Personal Passwords
 - **Private Vault**: A private place for personal logins.
@@ -104,7 +104,7 @@ cd backend
 # Install dependencies
 npm install
 
-# Run 57 automated tests across 9 suites (100% pass)
+# Run 74 automated tests across 11 suites (100% pass)
 npm test
 
 # Run strict TypeScript typecheck
@@ -193,5 +193,5 @@ The native Android project is structured in `android/` using Jetpack Compose and
 ## 9. Security Note
 
 - **No Plaintext Credential Storage**: Passwords and keys are never stored in plaintext on the backend or written to logs.
-- **Zero-Knowledge Recovery Boundary**: Because only the user holds their master password, automatic password resets are not supported.
+- **Account Sign-in Password Reset**: Sign-in passwords can be securely reset via single-use expiring email links with session revocation. Zero-knowledge encrypted vault payloads are guarded by cryptographic keys.
 - **Honest Access Boundary**: Revoking access blocks future server reads and sync, but cannot erase credentials already viewed or copied by a recipient.
