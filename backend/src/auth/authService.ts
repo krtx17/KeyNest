@@ -11,6 +11,7 @@ import {
   generateTotpSecret,
   verifyTotpCode,
 } from './cryptoUtils.ts';
+import { EmailService } from '../email/emailService.ts';
 
 export interface UserRecord {
   id: string;
@@ -57,9 +58,13 @@ export class AuthService {
     kdfParams?: Record<string, unknown>;
     keyBundle?: string;
     recoveryBundle?: string;
+    deviceName?: string;
+    ip?: string;
+    userAgent?: string;
   }) {
     const db = getDatabase();
-    const existing = db.queryOne<UserRecord>('SELECT id FROM users WHERE email = ?', [params.email.toLowerCase().trim()]);
+    const normalizedEmail = params.email.toLowerCase().trim();
+    const existing = db.queryOne<UserRecord>('SELECT id FROM users WHERE email = ?', [normalizedEmail]);
     if (existing) {
       throw new AppError(409, 'USER_EXISTS', 'An account with this email already exists.');
     }
@@ -73,7 +78,7 @@ export class AuthService {
        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
       [
         userId,
-        params.email.toLowerCase().trim(),
+        normalizedEmail,
         now, // auto-verified for MVP registration
         passwordHash,
         params.kdfParams ? JSON.stringify(params.kdfParams) : null,
@@ -100,10 +105,65 @@ export class AuthService {
       [membershipId, workspaceId, userId, now]
     );
 
+    // Enroll initial device
+    const deviceName = params.deviceName || 'Web Browser';
+    const deviceId = 'dev_' + crypto.randomUUID();
+    db.execute(
+      `INSERT INTO devices (id, user_id, name, identity_public_key, last_seen_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [deviceId, userId, deviceName, null, now]
+    );
+
+    // Create initial session & tokens
+    const sessionId = 'ses_' + crypto.randomUUID();
+    const refreshToken = generateRefreshToken();
+    const refreshTokenHash = hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    db.execute(
+      `INSERT INTO sessions (id, user_id, device_id, refresh_token_hash, expires_at, ip_hash, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        sessionId,
+        userId,
+        deviceId,
+        refreshTokenHash,
+        expiresAt,
+        params.ip ? hashToken(params.ip) : null,
+        params.userAgent || null,
+      ]
+    );
+
+    const accessToken = signAccessToken(
+      {
+        userId,
+        sessionId,
+        deviceId,
+        email: normalizedEmail,
+      },
+      config.JWT_ACCESS_SECRET
+    );
+
     return {
       userId,
-      email: params.email.toLowerCase().trim(),
+      email: normalizedEmail,
       personalWorkspaceId: workspaceId,
+      user: {
+        id: userId,
+        email: normalizedEmail,
+        kdfParams: params.kdfParams || null,
+        keyBundle: params.keyBundle || null,
+        recoveryBundle: params.recoveryBundle || null,
+      },
+      tokens: {
+        accessToken,
+        refreshToken,
+        expiresIn: 900,
+      },
+      device: {
+        id: deviceId,
+        name: deviceName,
+      },
     };
   }
 
@@ -368,6 +428,166 @@ export class AuthService {
     );
     return {
       revokedOthers: true,
+    };
+  }
+
+  /**
+   * Initiates a password reset request.
+   * Sends a single-use expiring reset link to verified email.
+   * Rate-limits requests and does not reveal whether the email exists.
+   */
+  static async requestPasswordReset(params: { email: string; ip?: string }): Promise<{ success: boolean; message: string }> {
+    if (!EmailService.isConfigured()) {
+      throw new AppError(
+        503,
+        'EMAIL_DELIVERY_NOT_CONFIGURED',
+        'Email delivery is not configured on the server. Please configure an email provider (such as RESEND_API_KEY) in the environment settings to send reset links.'
+      );
+    }
+
+    const db = getDatabase();
+    const normalizedEmail = params.email.toLowerCase().trim();
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 15 * 60 * 1000).toISOString(); // 15 mins window
+
+    // Check rate limit: max 3 attempts per 15 minutes for the email
+    const recentRequests = db.query<{ id: string }>(
+      'SELECT id FROM password_resets WHERE email = ? AND created_at > ?',
+      [normalizedEmail, windowStart]
+    );
+
+    if (recentRequests.length >= 3) {
+      throw new AppError(
+        429,
+        'RATE_LIMIT_EXCEEDED',
+        'Too many password reset requests. Please wait a few minutes before trying again.'
+      );
+    }
+
+    const genericMessage = 'If an account exists for this email address, a password reset link has been sent.';
+
+    // Look up user
+    const user = db.queryOne<UserRecord>('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
+    if (!user || user.status !== 'active') {
+      // Do not reveal whether user exists
+      return { success: true, message: genericMessage };
+    }
+
+    // Generate cryptographically secure random token (64 hex characters)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(resetToken);
+    const expiresAt = new Date(now.getTime() + 30 * 60 * 1000).toISOString(); // 30 minutes
+    const resetId = 'pr_' + crypto.randomUUID();
+
+    db.execute(
+      `INSERT INTO password_resets (id, user_id, email, token_hash, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [resetId, user.id, normalizedEmail, tokenHash, expiresAt, now.toISOString()]
+    );
+
+    await EmailService.sendPasswordResetLink({
+      recipientEmail: user.email,
+      resetToken,
+      expiresAt,
+    });
+
+    return {
+      success: true,
+      message: genericMessage,
+    };
+  }
+
+  /**
+   * Verifies whether a password reset token is valid and unexpired.
+   */
+  static verifyPasswordResetToken(token: string) {
+    const db = getDatabase();
+    const tokenHash = hashToken(token);
+    const record = db.queryOne<{
+      id: string;
+      user_id: string;
+      email: string;
+      token_hash: string;
+      expires_at: string;
+      used_at: string | null;
+      created_at: string;
+    }>('SELECT * FROM password_resets WHERE token_hash = ?', [tokenHash]);
+
+    if (!record || record.used_at) {
+      throw new AppError(400, 'INVALID_RESET_TOKEN', 'This password reset link is invalid or has already been used.');
+    }
+
+    if (new Date(record.expires_at) < new Date()) {
+      throw new AppError(400, 'EXPIRED_RESET_TOKEN', 'This password reset link has expired. Please request a new link.');
+    }
+
+    const user = db.queryOne<UserRecord>('SELECT email FROM users WHERE id = ?', [record.user_id]);
+    return {
+      valid: true,
+      email: user ? user.email : record.email,
+    };
+  }
+
+  /**
+   * Resets the user's sign-in password using a verified single-use token.
+   * Revokes all active sessions so all devices must sign in again.
+   * Sends security notification email.
+   */
+  static async completePasswordReset(params: { token: string; newPassword: string }) {
+    if (!params.newPassword || params.newPassword.length < 8) {
+      throw new AppError(400, 'WEAK_PASSWORD', 'Password must be at least 8 characters long.');
+    }
+
+    const db = getDatabase();
+    const tokenHash = hashToken(params.token);
+    const record = db.queryOne<{
+      id: string;
+      user_id: string;
+      email: string;
+      token_hash: string;
+      expires_at: string;
+      used_at: string | null;
+      created_at: string;
+    }>('SELECT * FROM password_resets WHERE token_hash = ?', [tokenHash]);
+
+    if (!record || record.used_at) {
+      throw new AppError(400, 'INVALID_RESET_TOKEN', 'This password reset link is invalid or has already been used.');
+    }
+
+    if (new Date(record.expires_at) < new Date()) {
+      throw new AppError(400, 'EXPIRED_RESET_TOKEN', 'This password reset link has expired. Please request a new link.');
+    }
+
+    const user = db.queryOne<UserRecord>('SELECT * FROM users WHERE id = ?', [record.user_id]);
+    if (!user || user.status !== 'active') {
+      throw new AppError(400, 'INVALID_USER', 'The user account could not be found or is inactive.');
+    }
+
+    const now = new Date().toISOString();
+    const newPasswordHash = hashPassword(params.newPassword);
+
+    // 1. Update password
+    db.execute('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?', [
+      newPasswordHash,
+      now,
+      user.id,
+    ]);
+
+    // 2. Mark token as used immediately
+    db.execute('UPDATE password_resets SET used_at = ? WHERE id = ?', [now, record.id]);
+
+    // 3. Revoke all active sessions for this user so old devices must sign in again
+    db.execute('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [
+      now,
+      user.id,
+    ]);
+
+    // 4. Send email confirming password change
+    await EmailService.sendPasswordChangedNotification({ recipientEmail: user.email }).catch(() => {});
+
+    return {
+      success: true,
+      message: 'Your sign-in password has been reset successfully. Please sign in with your new password.',
     };
   }
 }

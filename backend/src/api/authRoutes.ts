@@ -12,6 +12,7 @@ const registerSchema = z.object({
   kdfParams: z.record(z.unknown()).optional(),
   keyBundle: z.string().optional(),
   recoveryBundle: z.string().optional(),
+  deviceName: z.string().min(1).default('Web Browser'),
 });
 
 const loginSchema = z.object({
@@ -34,7 +35,11 @@ const stepUpSchema = z.object({
 authRouter.post('/auth/register', (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = registerSchema.parse(req.body);
-    const result = AuthService.register(parsed);
+    const result = AuthService.register({
+      ...parsed,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -124,6 +129,51 @@ authRouter.post('/devices/:id/revoke', requireAuth, requireStepUp, (req: Request
 authRouter.post('/sessions/sign-out-others', requireAuth, requireStepUp, (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = AuthService.signOutOtherDevices(req.user!.id, req.session!.id);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+
+// POST /auth/forgot-password
+authRouter.post('/auth/forgot-password', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = forgotPasswordSchema.parse(req.body);
+    const result = await AuthService.requestPasswordReset({
+      email,
+      ip: req.ip,
+    });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /auth/password-reset/verify
+authRouter.get('/auth/password-reset/verify', (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const token = typeof req.query.token === 'string' ? req.query.token : '';
+    const result = AuthService.verifyPasswordResetToken(token);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /auth/reset-password
+authRouter.post('/auth/reset-password', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = resetPasswordSchema.parse(req.body);
+    const result = await AuthService.completePasswordReset(parsed);
     res.status(200).json(result);
   } catch (err) {
     next(err);

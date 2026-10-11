@@ -183,6 +183,16 @@ CREATE TABLE IF NOT EXISTS item_invitations (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS password_resets (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL
+);
+
 -- Core Indices
 CREATE INDEX IF NOT EXISTS idx_items_ws_rev ON items(workspace_id, revision);
 CREATE INDEX IF NOT EXISTS idx_items_ws_updated ON items(workspace_id, updated_at);
@@ -195,4 +205,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_dev ON sessions(user_id, device_id)
 CREATE INDEX IF NOT EXISTS idx_item_invitations_token ON item_invitations(token_hash);
 CREATE INDEX IF NOT EXISTS idx_item_invitations_item ON item_invitations(item_id);
 CREATE INDEX IF NOT EXISTS idx_item_invitations_email ON item_invitations(recipient_email);
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_resets_email_time ON password_resets(email, created_at DESC);
 `;

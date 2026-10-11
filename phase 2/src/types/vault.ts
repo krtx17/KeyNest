@@ -81,3 +81,10 @@ export interface VerifiedInvitationInfo {
   permission: SharePermission;
   expiresAt: string;
 }
+
+export interface AuthResult {
+  success: boolean;
+  error?: string;
+  code?: string;
+  message?: string;
+}

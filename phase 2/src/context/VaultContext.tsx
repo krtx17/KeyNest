@@ -8,6 +8,7 @@ import {
   CurrentUser,
   ItemInvitation,
   VerifiedInvitationInfo,
+  AuthResult,
 } from '../types/vault';
 import {
   CURRENT_USER,
@@ -32,9 +33,14 @@ interface VaultContextType {
   setSearchQuery: (query: string) => void;
 
   // Authentication & Session
-  signIn: (email: string, password: string) => Promise<boolean>;
-  createAccount: (email: string, password: string) => Promise<boolean>;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  createAccount: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => void;
+  requestPasswordReset: (email: string) => Promise<AuthResult>;
+  verifyResetToken: (token: string) => Promise<{ isValid: boolean; email?: string; error?: string }>;
+  resetPassword: (token: string, newPassword: string) => Promise<AuthResult>;
+  pendingResetToken: string | null;
+  setPendingResetToken: (token: string | null) => void;
 
   // Vault Items
   items: VaultItem[];
@@ -208,6 +214,14 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return null;
   });
 
+  const [pendingResetToken, setPendingResetToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('resetToken') || params.get('reset_token') || null;
+    }
+    return null;
+  });
+
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -259,17 +273,20 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Authentication: Sign in
   const signIn = useCallback(
-    async (email: string, password: string): Promise<boolean> => {
+    async (email: string, password: string): Promise<AuthResult> => {
+      const normalizedEmail = email.toLowerCase().trim();
       try {
-        // 1. Attempt API authentication if backend is available
         const res = await fetch(`${API_BASE_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, deviceName: 'Web Client' }),
+          body: JSON.stringify({ email: normalizedEmail, password, deviceName: 'Web Client' }),
         });
 
+        const contentType = res.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const data = isJson ? await res.json().catch(() => null) : null;
+
         if (res.ok) {
-          const data = await res.json();
           const user: CurrentUser = {
             id: data.user.id,
             email: data.user.email,
@@ -299,92 +316,224 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             message: `Signed in as ${user.email}.`,
             type: 'success',
           });
-          return true;
+          return { success: true };
         }
 
-        if (res.status === 401 || res.status === 400) {
-          const errData = await res.json().catch(() => null);
-          showToast({
-            title: 'Sign in failed',
-            message: errData?.error?.message || 'Invalid email or password.',
-            type: 'warning',
-          });
-          return false;
+        if (res.status === 401) {
+          const msg = data?.error?.message || 'Invalid email or password. Please check your credentials.';
+          return { success: false, code: 'INVALID_CREDENTIALS', error: msg };
         }
+
+        if (res.status === 400) {
+          const msg = data?.error?.message || 'Invalid email or password format.';
+          return { success: false, code: 'VALIDATION_ERROR', error: msg };
+        }
+
+        if (res.status === 404 || res.status === 405 || (!isJson && contentType.includes('text/html'))) {
+          const msg = 'Authentication server endpoint was not found. Please verify that your backend API is running and VITE_API_BASE_URL is configured.';
+          return { success: false, code: 'SERVER_UNAVAILABLE', error: msg };
+        }
+
+        const msg = data?.error?.message || 'Sign in failed. Please try again.';
+        return { success: false, code: 'SERVER_ERROR', error: msg };
       } catch {
-        // Fallback to local secure session if backend is offline or standalone preview
-        const normalizedEmail = email.toLowerCase().trim();
-        const user: CurrentUser = {
-          id: 'usr_' + Math.abs(normalizedEmail.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0)),
-          email: normalizedEmail,
-          name: normalizedEmail.split('@')[0],
-          initials: normalizedEmail.slice(0, 2).toUpperCase(),
+        return {
+          success: false,
+          code: 'NETWORK_ERROR',
+          error: 'Unable to connect to the authentication server. Please check your network connection or verify the backend is running.',
         };
-
-        sessionStorage.setItem('keynest_user', JSON.stringify(user));
-        sessionStorage.setItem('keynest_passphrase', password);
-
-        setCurrentUser(user);
-        setIsLocked(false);
-
-        const savedItems = localStorage.getItem(`keynest_data_${user.id}_items`);
-        setItems(savedItems ? JSON.parse(savedItems) : []);
-        const savedCats = localStorage.getItem(`keynest_data_${user.id}_categories`);
-        setCategories(savedCats ? JSON.parse(savedCats) : []);
-        const savedTeammates = localStorage.getItem(`keynest_data_${user.id}_teammates`);
-        setTeammates(savedTeammates ? JSON.parse(savedTeammates) : []);
-        const savedInvites = localStorage.getItem(`keynest_data_${user.id}_invitations`);
-        setInvitationsMap(savedInvites ? JSON.parse(savedInvites) : {});
-
-        showToast({
-          title: 'Welcome to KeyNest',
-          message: 'Signed in successfully.',
-          type: 'success',
-        });
-        return true;
       }
-      return false;
     },
     [showToast]
   );
 
   // Authentication: Create account
   const createAccount = useCallback(
-    async (email: string, password: string): Promise<boolean> => {
+    async (email: string, password: string): Promise<AuthResult> => {
+      const normalizedEmail = email.toLowerCase().trim();
       try {
         const res = await fetch(`${API_BASE_URL}/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: normalizedEmail, password, deviceName: 'Web Client' }),
         });
 
+        const contentType = res.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const data = isJson ? await res.json().catch(() => null) : null;
+
         if (res.ok || res.status === 201) {
-          // Immediately log in with the new account
-          return await signIn(email, password);
+          if (data?.tokens?.accessToken && data?.user) {
+            const user: CurrentUser = {
+              id: data.user.id,
+              email: data.user.email,
+              name: data.user.email.split('@')[0],
+              initials: data.user.email.slice(0, 2).toUpperCase(),
+            };
+
+            sessionStorage.setItem('keynest_token', data.tokens.accessToken);
+            sessionStorage.setItem('keynest_user', JSON.stringify(user));
+            sessionStorage.setItem('keynest_passphrase', password);
+
+            setCurrentUser(user);
+            setIsLocked(false);
+            setItems([]);
+            setCategories([]);
+            setTeammates([]);
+            setInvitationsMap({});
+
+            showToast({
+              title: 'Account created',
+              message: `Welcome to KeyNest, ${user.email}!`,
+              type: 'success',
+            });
+            return { success: true };
+          }
+
+          // Fallback to signing in with the new credentials
+          return await signIn(normalizedEmail, password);
         }
 
         if (res.status === 409) {
-          showToast({
-            title: 'Account exists',
-            message: 'An account with this email already exists. Try signing in.',
-            type: 'warning',
-          });
-          return false;
+          const msg = data?.error?.message || 'An account with this email already exists. Try signing in.';
+          return { success: false, code: 'USER_EXISTS', error: msg };
         }
 
-        const errData = await res.json().catch(() => null);
-        showToast({
-          title: 'Registration failed',
-          message: errData?.error?.message || 'Could not create account.',
-          type: 'warning',
-        });
-        return false;
+        if (res.status === 400) {
+          const msg = data?.error?.message || 'Invalid registration details. Please check your email and password.';
+          return { success: false, code: 'VALIDATION_ERROR', error: msg };
+        }
+
+        if (res.status === 404 || res.status === 405 || (!isJson && contentType.includes('text/html'))) {
+          const msg = 'Authentication server endpoint was not found. Please verify that your backend API is running and VITE_API_BASE_URL is configured.';
+          return { success: false, code: 'SERVER_UNAVAILABLE', error: msg };
+        }
+
+        const msg = data?.error?.message || 'Could not create account. Please try again.';
+        return { success: false, code: 'SERVER_ERROR', error: msg };
       } catch {
-        // Local standalone registration fallback
-        return await signIn(email, password);
+        return {
+          success: false,
+          code: 'NETWORK_ERROR',
+          error: 'Unable to connect to the authentication server. Please check your network connection or verify the backend is running.',
+        };
       }
     },
     [signIn, showToast]
+  );
+
+  // Password Reset: Request link
+  const requestPasswordReset = useCallback(
+    async (email: string): Promise<AuthResult> => {
+      const normalizedEmail = email.toLowerCase().trim();
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail }),
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const data = isJson ? await res.json().catch(() => null) : null;
+
+        if (res.ok) {
+          return {
+            success: true,
+            message: data?.message || 'If an account exists for this email address, a password reset link has been sent.',
+          };
+        }
+
+        if (res.status === 429) {
+          const msg = data?.error?.message || 'Too many password reset requests. Please wait a few minutes before trying again.';
+          return { success: false, code: 'RATE_LIMIT_EXCEEDED', error: msg };
+        }
+
+        if (res.status === 503) {
+          const msg = data?.error?.message || 'Email delivery is not configured on the server. Please set RESEND_API_KEY in your server environment.';
+          return { success: false, code: 'EMAIL_DELIVERY_NOT_CONFIGURED', error: msg };
+        }
+
+        if (res.status === 400) {
+          const msg = data?.error?.message || 'Please enter a valid email address.';
+          return { success: false, code: 'VALIDATION_ERROR', error: msg };
+        }
+
+        const msg = data?.error?.message || 'Unable to process password reset request. Please try again.';
+        return { success: false, code: 'SERVER_ERROR', error: msg };
+      } catch {
+        return {
+          success: false,
+          code: 'NETWORK_ERROR',
+          error: 'Unable to connect to the authentication server. Please verify your connection or server status.',
+        };
+      }
+    },
+    []
+  );
+
+  // Password Reset: Verify link token
+  const verifyResetToken = useCallback(
+    async (token: string): Promise<{ isValid: boolean; email?: string; error?: string }> => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/password-reset/verify?token=${encodeURIComponent(token)}`);
+        const data = await res.json().catch(() => null);
+
+        if (res.ok && data?.valid) {
+          return { isValid: true, email: data.email };
+        }
+
+        return {
+          isValid: false,
+          error: data?.error?.message || 'This password reset link is invalid or has expired.',
+        };
+      } catch {
+        return {
+          isValid: false,
+          error: 'Unable to connect to the server to verify reset link.',
+        };
+      }
+    },
+    []
+  );
+
+  // Password Reset: Complete password change
+  const resetPassword = useCallback(
+    async (token: string, newPassword: string): Promise<AuthResult> => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, newPassword }),
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (res.ok) {
+          showToast({
+            title: 'Password reset',
+            message: 'Your sign-in password was updated. Please sign in with your new password.',
+            type: 'success',
+          });
+          return {
+            success: true,
+            message: data?.message || 'Your password has been reset successfully. Please sign in.',
+          };
+        }
+
+        return {
+          success: false,
+          error: data?.error?.message || 'Failed to reset password. Please ensure the link is still valid.',
+        };
+      } catch {
+        return {
+          success: false,
+          code: 'NETWORK_ERROR',
+          error: 'Unable to connect to the authentication server. Please check your network connection.',
+        };
+      }
+    },
+    [showToast]
   );
 
   // Sign out
@@ -1015,6 +1164,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         signIn,
         createAccount,
         signOut,
+        requestPasswordReset,
+        verifyResetToken,
+        resetPassword,
+        pendingResetToken,
+        setPendingResetToken,
 
         items,
         addItem,

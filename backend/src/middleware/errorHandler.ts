@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { logger } from './redactionLogger.ts';
 
 export class AppError extends Error {
@@ -21,6 +22,18 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
+  if (err instanceof ZodError) {
+    const firstIssue = err.issues[0];
+    const message = firstIssue ? `${firstIssue.path.join('.') || 'input'}: ${firstIssue.message}` : 'Invalid input data.';
+    logger.warn(`Validation error on ${req.method} ${req.url}: ${message}`);
+    return res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message,
+      },
+    });
+  }
+
   const isAppError = err instanceof AppError;
   const statusCode = isAppError ? err.statusCode : 500;
   const code = isAppError ? err.code : 'INTERNAL_SERVER_ERROR';

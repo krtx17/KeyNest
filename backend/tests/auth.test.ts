@@ -47,6 +47,9 @@ describe('Phase 2: Authentication, Sessions, Devices & Step-Up Engine', () => {
     assert.equal(data.email, 'maya@orbitstart.com');
     assert.ok(data.userId.startsWith('usr_'));
     assert.ok(data.personalWorkspaceId.startsWith('ws_'));
+    assert.ok(data.tokens.accessToken);
+    assert.ok(data.tokens.refreshToken);
+    assert.equal(data.user.email, 'maya@orbitstart.com');
   });
 
   it('should reject duplicate email registration', async () => {
@@ -62,6 +65,39 @@ describe('Phase 2: Authentication, Sessions, Devices & Step-Up Engine', () => {
     assert.equal(res.status, 409);
     const data = (await res.json()) as any;
     assert.equal(data.error.code, 'USER_EXISTS');
+    assert.equal(data.error.message, 'An account with this email already exists.');
+  });
+
+  it('should reject registration with invalid email format with 400 VALIDATION_ERROR', async () => {
+    const res = await fetch(`${baseUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'not-an-email',
+        password: 'ValidPassword123!',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const data = (await res.json()) as any;
+    assert.equal(data.error.code, 'VALIDATION_ERROR');
+    assert.ok(data.error.message.includes('email'));
+  });
+
+  it('should reject registration with password shorter than 8 characters with 400 VALIDATION_ERROR', async () => {
+    const res = await fetch(`${baseUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'shortpass@orbitstart.com',
+        password: 'short',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const data = (await res.json()) as any;
+    assert.equal(data.error.code, 'VALIDATION_ERROR');
+    assert.ok(data.error.message.includes('password'));
   });
 
   it('should reject login with invalid password', async () => {
