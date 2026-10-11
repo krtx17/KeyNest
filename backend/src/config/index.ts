@@ -1,0 +1,36 @@
+import dotenv from 'dotenv';
+import { z } from 'zod';
+
+dotenv.config();
+
+const configSchema = z.object({
+  PORT: z.coerce.number().default(4000),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  API_PREFIX: z.string().default('/api/v1'),
+  CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  JWT_ACCESS_SECRET: z.string().min(16).default('development_jwt_access_secret_min_32_characters_ok'),
+  JWT_REFRESH_SECRET: z.string().min(16).default('development_jwt_refresh_secret_min_32_characters_ok'),
+  KMS_MASTER_KEY: z.string().default('dev_kms_master_key_for_operational_encryption'),
+  DATABASE_URL: z.string().default('sqlite::memory:'),
+  USE_IN_MEMORY_DB: z.coerce.boolean().default(true),
+  RATE_LIMIT_LOGIN_MAX: z.coerce.number().default(5),
+  RATE_LIMIT_LOGIN_WINDOW_MS: z.coerce.number().default(60000),
+  STEP_UP_TTL_SECONDS: z.coerce.number().default(120),
+});
+
+export type Config = z.infer<typeof configSchema>;
+
+export const config: Config = configSchema.parse({
+  PORT: process.env.PORT,
+  NODE_ENV: process.env.NODE_ENV,
+  API_PREFIX: process.env.API_PREFIX,
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
+  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
+  KMS_MASTER_KEY: process.env.KMS_MASTER_KEY,
+  DATABASE_URL: process.env.DATABASE_URL,
+  USE_IN_MEMORY_DB: process.env.USE_IN_MEMORY_DB,
+  RATE_LIMIT_LOGIN_MAX: process.env.RATE_LIMIT_LOGIN_MAX,
+  RATE_LIMIT_LOGIN_WINDOW_MS: process.env.RATE_LIMIT_LOGIN_WINDOW_MS,
+  STEP_UP_TTL_SECONDS: process.env.STEP_UP_TTL_SECONDS,
+});

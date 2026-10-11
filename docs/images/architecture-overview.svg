@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" width="960" height="620">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .card { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.5; rx: 12; }
+      .card-planned { fill: #fafafa; stroke: #cbd5e1; stroke-width: 1.5; stroke-dasharray: 4 4; rx: 12; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 22px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; fill: #64748b; }
+      .sec-hdr { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 1px; text-transform: uppercase; }
+      .comp-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; font-weight: 600; fill: #1e293b; }
+      .comp-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #64748b; }
+      .badge-active { fill: #dcfce7; stroke: #86efac; stroke-width: 1; }
+      .badge-active-txt { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9px; font-weight: 700; fill: #166534; }
+      .badge-plan { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1; }
+      .badge-plan-txt { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9px; font-weight: 700; fill: #64748b; }
+      .arrow { stroke: #6366f1; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .arrow-head { fill: #6366f1; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="620" class="bg" rx="16" />
+
+  <!-- Header -->
+  <g transform="translate(40, 36)">
+    <circle cx="16" cy="16" r="16" fill="#6366f1" />
+    <path d="M12 16l3 3 6-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    <text x="44" y="16" class="title">Keynest — Architecture Overview</text>
+    <text x="44" y="34" class="subtitle">Modular Express Backend, React 19 Frontend &amp; Security Protocol</text>
+  </g>
+
+  <!-- Section 1: Client Applications -->
+  <g transform="translate(40, 95)">
+    <text x="0" y="15" class="sec-hdr">Client Tier</text>
+
+    <!-- Web App -->
+    <rect x="0" y="25" width="270" height="110" class="card" />
+    <text x="16" y="52" class="comp-title">React Web Client</text>
+    <rect x="180" y="40" width="76" height="18" rx="9" class="badge-active" />
+    <text x="218" y="52" text-anchor="middle" class="badge-active-txt">IMPLEMENTED</text>
+    <text x="16" y="74" class="comp-sub">• React 19, Vite 8, Tailwind CSS v4</text>
+    <text x="16" y="92" class="comp-sub">• Personal, Shared &amp; Categories views</text>
+    <text x="16" y="110" class="comp-sub">• Responsive Desktop, Tablet &amp; Mobile</text>
+
+    <!-- Mobile Native App (Planned) -->
+    <rect x="290" y="25" width="270" height="110" class="card-planned" />
+    <text x="306" y="52" class="comp-title">iOS &amp; Android Apps</text>
+    <rect x="496" y="40" width="52" height="18" rx="9" class="badge-plan" />
+    <text x="522" y="52" text-anchor="middle" class="badge-plan-txt">PLANNED</text>
+    <text x="306" y="74" class="comp-sub">• Native React Native / Swift / Kotlin</text>
+    <text x="306" y="92" class="comp-sub">• Secure Enclave / KeyStore storage</text>
+    <text x="306" y="110" class="comp-sub">• Platform-independent REST API</text>
+
+    <!-- Crypto Core (Planned) -->
+    <rect x="580" y="25" width="300" height="110" class="card-planned" />
+    <text x="596" y="52" class="comp-title">Client-Side Crypto Engine</text>
+    <rect x="814" y="40" width="52" height="18" rx="9" class="badge-plan" />
+    <text x="840" y="52" text-anchor="middle" class="badge-plan-txt">PLANNED</text>
+    <text x="596" y="74" class="comp-sub">• WebCrypto / libsodium integration</text>
+    <text x="596" y="92" class="comp-sub">• Passphrase Argon2id KDF</text>
+    <text x="596" y="110" class="comp-sub">• End-to-end DEK key agreement</text>
+  </g>
+
+  <!-- Connectors from Clients to API -->
+  <path d="M 135 230 L 135 255 L 480 255 L 480 275" class="arrow" />
+  <polygon points="480,280 476,272 484,272" class="arrow-head" />
+
+  <!-- Section 2: Backend API & Security Gateway -->
+  <g transform="translate(40, 275)">
+    <text x="0" y="15" class="sec-hdr">Backend API &amp; Security Layer (Node 24 + Express)</text>
+
+    <!-- Main API Card -->
+    <rect x="0" y="25" width="880" height="120" class="card" />
+
+    <!-- Col 1: Routes -->
+    <g transform="translate(20, 45)">
+      <text x="0" y="0" class="comp-title">REST API Routes (/api/v1)</text>
+      <text x="0" y="20" class="comp-sub">• /auth — Register, Login, Refresh, Devices</text>
+      <text x="0" y="38" class="comp-sub">• /items — Encrypted Items, Delta Sync</text>
+      <text x="0" y="56" class="comp-sub">• /workspaces — RBAC, Single-Use Invites</text>
+      <text x="0" y="74" class="comp-sub">• /sharing — Wrapped Keys, Revocation</text>
+    </g>
+
+    <!-- Col 2: Middleware & Controls -->
+    <g transform="translate(320, 45)">
+      <text x="0" y="0" class="comp-title">Security Middleware</text>
+      <text x="0" y="20" class="comp-sub">• Redaction Logger (zeros passwords/tokens)</text>
+      <text x="0" y="38" class="comp-sub">• JWT Session Auth &amp; Revocation Check</text>
+      <text x="0" y="56" class="comp-sub">• Step-Up Elevation Guard (≤ 2min TTL)</text>
+      <text x="0" y="74" class="comp-sub">• Strict Cross-Tenant BOLA/IDOR Defense</text>
+    </g>
+
+    <!-- Col 3: Services -->
+    <g transform="translate(620, 45)">
+      <text x="0" y="0" class="comp-title">Core Services</text>
+      <text x="0" y="20" class="comp-sub">• ItemService (Optimistic concurrency)</text>
+      <text x="0" y="38" class="comp-sub">• SharingService (Key envelope logic)</text>
+      <text x="0" y="56" class="comp-sub">• AuditService (Tamper-evident logs)</text>
+      <text x="0" y="74" class="comp-sub">• AccountService (Export &amp; deletion)</text>
+    </g>
+  </g>
+
+  <!-- Connectors from API to DB -->
+  <path d="M 480 420 L 480 455" class="arrow" />
+  <polygon points="480,460 476,452 484,452" class="arrow-head" />
+
+  <!-- Section 3: Data & Storage Layer -->
+  <g transform="translate(40, 455)">
+    <text x="0" y="15" class="sec-hdr">Storage &amp; Cryptographic Boundaries</text>
+
+    <!-- SQLite / PostgreSQL Card -->
+    <rect x="0" y="25" width="430" height="110" class="card" />
+    <text x="16" y="52" class="comp-title">Relational Database Engine</text>
+    <rect x="330" y="40" width="84" height="18" rx="9" class="badge-active" />
+    <text x="372" y="52" text-anchor="middle" class="badge-active-txt">SQLITE READY</text>
+    <text x="16" y="74" class="comp-sub">• 14 normalized tables &amp; composite indexes</text>
+    <text x="16" y="92" class="comp-sub">• node:sqlite zero-dependency dev engine</text>
+    <text x="16" y="110" class="comp-sub">• PostgreSQL compatible schema DDL</text>
+
+    <!-- Cryptographic Storage Rules -->
+    <rect x="450" y="25" width="430" height="110" class="card" />
+    <text x="466" y="52" class="comp-title">Data Storage Principles</text>
+    <text x="466" y="74" class="comp-sub" fill="#166534">✓ Plaintext Passwords NEVER stored in database</text>
+    <text x="466" y="92" class="comp-sub" fill="#166534">✓ Stores only authenticated ciphertexts &amp; wrapped keys</text>
+    <text x="466" y="110" class="comp-sub" fill="#166534">✓ Salted Scrypt + RFC 6238 TOTP password verification</text>
+  </g>
+</svg>

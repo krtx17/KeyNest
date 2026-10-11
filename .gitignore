@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Production Build Outputs
+dist/
+*/dist/
+build/
+*/build/
+out/
+*/out/
+
+# Environment Variables & Secrets (CRITICAL: Never commit real secrets)
+.env
+.env.*
+!.env.example
+*/.env
+*/.env.*
+!*/.env.example
+
+# Local Databases, Caches & Backups
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.sqlite-journal
+*.backup
+*.dump
+
+# Logs & Debug Noise
+*.log
+logs/
+*/logs/
+
+# Operating System & Editor Files
+.DS_Store
+Thumbs.db
+desktop.ini
+*/desktop.ini
+.vscode/
+*/.vscode/
+.idea/
+*/.idea/
+
+# Tool Caches & Artifacts
+.antigravity/
+*/.antigravity/
+*.pbtxt
+.turbo/
+.eslintcache
+
+# Test Coverage
+coverage/
+*/coverage/
+.nyc_output/

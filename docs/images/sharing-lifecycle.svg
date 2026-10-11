@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 580" width="960" height="580">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .card { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.5; rx: 12; }
+      .card-warn { fill: #fffbeb; stroke: #fde68a; stroke-width: 1.5; rx: 12; }
+      .step-num { fill: #6366f1; }
+      .step-txt { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; fill: #ffffff; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 22px; font-weight: 700; fill: #0f172a; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; fill: #64748b; }
+      .card-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: 700; fill: #1e293b; }
+      .card-desc { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; fill: #475569; }
+      .arrow { stroke: #6366f1; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .arrow-head { fill: #6366f1; }
+      .code-pill { font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; fill: #6366f1; font-weight: 600; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="580" class="bg" rx="16" />
+
+  <!-- Header -->
+  <g transform="translate(40, 36)">
+    <circle cx="16" cy="16" r="16" fill="#6366f1" />
+    <path d="M10 16l4 4 8-8" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    <text x="44" y="16" class="title">Keynest — Sharing &amp; Revocation Lifecycle</text>
+    <text x="44" y="34" class="subtitle">Delegated Access, Key Envelopes, Revocation &amp; Real-World Boundaries</text>
+  </g>
+
+  <!-- Timeline Flow Container -->
+  <!-- Step 1: Select Teammate -->
+  <g transform="translate(40, 100)">
+    <rect x="0" y="0" width="160" height="230" class="card" />
+    <circle cx="28" cy="28" r="14" class="step-num" />
+    <text x="28" y="32" text-anchor="middle" class="step-txt">1</text>
+    <text x="16" y="68" class="card-title">Select Teammate</text>
+    <text x="16" y="90" class="card-desc">• Pick recipient</text>
+    <text x="16" y="108" class="card-desc">  (e.g., Arjun, Nina)</text>
+    <text x="16" y="132" class="card-desc">• Pick permission:</text>
+    <text x="24" y="152" class="code-pill">view_copy</text>
+    <text x="24" y="170" class="card-desc">(Read/copy secret)</text>
+    <text x="24" y="192" class="code-pill">edit</text>
+    <text x="24" y="210" class="card-desc">(Modify credential)</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 200 215 L 220 215" class="arrow" />
+  <polygon points="220,215 212,211 212,219" class="arrow-head" />
+
+  <!-- Step 2: Wrap Key -->
+  <g transform="translate(220, 100)">
+    <rect x="0" y="0" width="160" height="230" class="card" />
+    <circle cx="28" cy="28" r="14" class="step-num" />
+    <text x="28" y="32" text-anchor="middle" class="step-txt">2</text>
+    <text x="16" y="68" class="card-title">Key Wrapping</text>
+    <text x="16" y="90" class="card-desc">• Item Data Key (DEK)</text>
+    <text x="16" y="108" class="card-desc">  is encrypted using</text>
+    <text x="16" y="126" class="card-desc">  recipient public key</text>
+    <text x="16" y="152" class="card-desc">• Server receives</text>
+    <text x="16" y="170" class="card-desc">  opaque key envelope:</text>
+    <text x="20" y="190" class="code-pill">POST /items/:id/shares</text>
+    <text x="16" y="212" class="card-desc">• Zero plaintext shared</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 380 215 L 400 215" class="arrow" />
+  <polygon points="400,215 392,211 392,219" class="arrow-head" />
+
+  <!-- Step 3: Decrypt Locally -->
+  <g transform="translate(400, 100)">
+    <rect x="0" y="0" width="160" height="230" class="card" />
+    <circle cx="28" cy="28" r="14" class="step-num" />
+    <text x="28" y="32" text-anchor="middle" class="step-txt">3</text>
+    <text x="16" y="68" class="card-title">Shared Access</text>
+    <text x="16" y="90" class="card-desc">• Recipient logs in &amp;</text>
+    <text x="16" y="108" class="card-desc">  pulls item record</text>
+    <text x="16" y="132" class="card-desc">• Device un緻wraps DEK</text>
+    <text x="16" y="150" class="card-desc">  using private key</text>
+    <text x="16" y="174" class="card-desc">• Secret decrypted</text>
+    <text x="16" y="192" class="card-desc">  in client memory</text>
+    <text x="16" y="212" class="card-desc">• Hidden until revealed</text>
+  </g>
+
+  <!-- Arrow 3 -> 4 -->
+  <path d="M 560 215 L 580 215" class="arrow" />
+  <polygon points="580,215 572,211 572,219" class="arrow-head" />
+
+  <!-- Step 4: Revocation -->
+  <g transform="translate(580, 100)">
+    <rect x="0" y="0" width="160" height="230" class="card" />
+    <circle cx="28" cy="28" r="14" class="step-num" />
+    <text x="28" y="32" text-anchor="middle" class="step-txt">4</text>
+    <text x="16" y="68" class="card-title">Access Removal</text>
+    <text x="16" y="90" class="card-desc">• Owner clicks</text>
+    <text x="16" y="108" class="card-desc">  "Remove access"</text>
+    <text x="20" y="132" class="code-pill">DELETE /shares/:uid</text>
+    <text x="16" y="156" class="card-desc">• Wrapped key revoked</text>
+    <text x="16" y="174" class="card-desc">  in item_keys table</text>
+    <text x="16" y="198" class="card-desc">• Future sync blocked</text>
+    <text x="16" y="216" class="card-desc">  by RBAC middleware</text>
+  </g>
+
+  <!-- Arrow 4 -> 5 -->
+  <path d="M 740 215 L 760 215" class="arrow" />
+  <polygon points="760,215 752,211 752,219" class="arrow-head" />
+
+  <!-- Step 5: Honest Security Boundary -->
+  <g transform="translate(760, 100)">
+    <rect x="0" y="0" width="160" height="230" class="card-warn" />
+    <circle cx="28" cy="28" r="14" fill="#f59e0b" />
+    <text x="28" y="32" text-anchor="middle" class="step-txt">5</text>
+    <text x="16" y="68" class="card-title" fill="#b45309">Security Reality</text>
+    <text x="16" y="90" class="card-desc" fill="#92400e">• Revocation blocks</text>
+    <text x="16" y="108" class="card-desc" fill="#92400e">  future access,</text>
+    <text x="16" y="126" class="card-desc" fill="#92400e">  CANNOT erase past</text>
+    <text x="16" y="144" class="card-desc" fill="#92400e">  copied passwords.</text>
+    <text x="16" y="172" class="card-desc" fill="#92400e">• Owner prompted to</text>
+    <text x="16" y="190" class="card-desc" fill="#92400e">  rotate password</text>
+    <text x="16" y="208" class="card-desc" fill="#92400e">  on external website.</text>
+  </g>
+
+  <!-- Big Security Callout Banner at Bottom -->
+  <g transform="translate(40, 360)">
+    <rect x="0" y="0" width="880" height="180" rx="14" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" />
+    
+    <g transform="translate(24, 24)">
+      <circle cx="16" cy="16" r="16" fill="#fef3c7" />
+      <text x="16" y="22" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="700" fill="#b45309">!</text>
+      <text x="44" y="21" class="card-title" fill="#0f172a">Honest Security Boundary Notice</text>
+      
+      <text x="0" y="58" class="card-desc" font-size="12px">Keynest does not make false cryptographic promises:</text>
+      <text x="16" y="80" class="card-desc" font-size="12px">• Once a human has viewed or copied a password, no software can delete it from their memory or personal clipboard.</text>
+      <text x="16" y="102" class="card-desc" font-size="12px">• Removing access strictly terminates access to the vault item and future updates on the Keynest platform.</text>
+      <text x="16" y="124" class="card-desc" font-size="12px">• When a teammate departs, always rotate the external service credentials to guarantee continued security.</text>
+    </g>
+  </g>
+</svg>
