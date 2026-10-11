@@ -47,5 +47,6 @@ export interface ToastNotification {
   id: string;
   title: string;
   message?: string;
-  type: 'info' | 'success' | 'warning';
+  type: 'info' | 'success' | 'warning' | 'clipboard';
+  countdownRemaining?: number;
 }

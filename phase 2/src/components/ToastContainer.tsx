@@ -32,7 +32,7 @@ const ToastItem: React.FC<{
   useEffect(() => {
     if (toast.type === 'clipboard' && secondsLeft > 0) {
       const interval = setInterval(() => {
-        setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
+        setSecondsLeft((s: number) => (s <= 1 ? 0 : s - 1));
       }, 1000);
       return () => clearInterval(interval);
     }

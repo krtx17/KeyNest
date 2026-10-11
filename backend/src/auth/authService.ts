@@ -125,9 +125,13 @@ export class AuthService {
       throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
     }
 
-    if (params.password) {
-      if (!user.password_hash || !verifyPassword(params.password, user.password_hash)) {
+    if (user.password_hash) {
+      if (!params.password || !verifyPassword(params.password, user.password_hash)) {
         throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
+      }
+    } else {
+      if (!params.identityPublicKey) {
+        throw new AppError(401, 'MISSING_CREDENTIALS', 'Authentication credential required.');
       }
     }
 

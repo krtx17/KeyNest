@@ -80,6 +80,21 @@ describe('Phase 2: Authentication, Sessions, Devices & Step-Up Engine', () => {
     assert.equal(data.error.code, 'INVALID_CREDENTIALS');
   });
 
+  it('should reject login with missing password for password-protected account', async () => {
+    const res = await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'maya@orbitstart.com',
+        deviceName: 'Attacker Machine',
+      }),
+    });
+
+    assert.equal(res.status, 401);
+    const data = (await res.json()) as any;
+    assert.equal(data.error.code, 'INVALID_CREDENTIALS');
+  });
+
   let accessToken: string;
   let refreshToken: string;
   let deviceId: string;
