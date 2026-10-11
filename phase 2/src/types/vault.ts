@@ -50,3 +50,34 @@ export interface ToastNotification {
   type: 'info' | 'success' | 'warning' | 'clipboard';
   countdownRemaining?: number;
 }
+
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+
+export interface ItemInvitation {
+  id: string;
+  itemId: string;
+  recipientName: string;
+  recipientEmail: string;
+  serviceName?: string;
+  permission: SharePermission;
+  status: InvitationStatus;
+  invitedBy?: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt?: string | null;
+  acceptedBy?: string | null;
+  revokedAt?: string | null;
+}
+
+export interface VerifiedInvitationInfo {
+  isValid: boolean;
+  status: InvitationStatus;
+  itemId: string;
+  serviceName: string;
+  recipientName: string;
+  recipientEmail: string;
+  senderName: string;
+  senderEmail: string;
+  permission: SharePermission;
+  expiresAt: string;
+}

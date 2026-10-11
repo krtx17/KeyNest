@@ -165,6 +165,24 @@ CREATE TABLE IF NOT EXISTS sync_cursors (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS item_invitations (
+  id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  invited_by TEXT NOT NULL REFERENCES users(id),
+  recipient_name TEXT NOT NULL,
+  recipient_email TEXT NOT NULL,
+  service_name TEXT DEFAULT '',
+  wrapped_key TEXT DEFAULT '',
+  permission TEXT NOT NULL CHECK(permission IN ('view_copy', 'edit')),
+  token_hash TEXT UNIQUE NOT NULL,
+  expires_at TEXT NOT NULL,
+  accepted_at TEXT,
+  accepted_by TEXT REFERENCES users(id),
+  revoked_at TEXT,
+  created_at TEXT NOT NULL
+);
+
 -- Core Indices
 CREATE INDEX IF NOT EXISTS idx_items_ws_rev ON items(workspace_id, revision);
 CREATE INDEX IF NOT EXISTS idx_items_ws_updated ON items(workspace_id, updated_at);
@@ -174,4 +192,7 @@ CREATE INDEX IF NOT EXISTS idx_item_keys_lookup ON item_keys(item_id, recipient_
 CREATE INDEX IF NOT EXISTS idx_audit_events_ws_time ON audit_events(workspace_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token_hash);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_dev ON sessions(user_id, device_id);
+CREATE INDEX IF NOT EXISTS idx_item_invitations_token ON item_invitations(token_hash);
+CREATE INDEX IF NOT EXISTS idx_item_invitations_item ON item_invitations(item_id);
+CREATE INDEX IF NOT EXISTS idx_item_invitations_email ON item_invitations(recipient_email);
 `;

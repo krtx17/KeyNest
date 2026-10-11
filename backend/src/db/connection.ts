@@ -43,6 +43,12 @@ class SqliteDatabase implements DatabaseConnection {
   migrate(): void {
     logger.info('Running database migrations...');
     this.exec(SCHEMA_SQL);
+    try {
+      this.exec('ALTER TABLE item_invitations ADD COLUMN service_name TEXT DEFAULT ""');
+    } catch {}
+    try {
+      this.exec('ALTER TABLE item_invitations ADD COLUMN wrapped_key TEXT DEFAULT ""');
+    } catch {}
     logger.info('Database migrations applied successfully.');
   }
 

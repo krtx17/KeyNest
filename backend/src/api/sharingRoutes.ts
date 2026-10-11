@@ -123,3 +123,106 @@ sharingRouter.get(
     }
   }
 );
+
+// --- Password Item Invitations via Email ---
+
+const createItemInvitationSchema = z.object({
+  recipientName: z.string().min(1, 'Recipient name is required'),
+  recipientEmail: z.string().email('Valid recipient email address is required'),
+  permission: z.enum(['view_copy', 'edit']).default('view_copy'),
+  serviceName: z.string().optional(),
+});
+
+const acceptItemInvitationSchema = z.object({
+  token: z.string().min(1, 'Invitation token is required'),
+});
+
+// POST /items/:id/invitations (Send email invitation)
+sharingRouter.post(
+  '/items/:id/invitations',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const parsed = createItemInvitationSchema.parse(req.body);
+      const invitation = await SharingService.createItemInvitation({
+        actorId: req.user!.id,
+        itemId: req.params.id,
+        recipientName: parsed.recipientName,
+        recipientEmail: parsed.recipientEmail,
+        permission: parsed.permission,
+        serviceName: parsed.serviceName,
+      });
+      res.status(201).json(invitation);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /items/:id/invitations (List all invitations for item with live statuses)
+sharingRouter.get(
+  '/items/:id/invitations',
+  requireAuth,
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const invitations = SharingService.listItemInvitations({
+        actorId: req.user!.id,
+        itemId: req.params.id,
+      });
+      res.status(200).json({ invitations });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// DELETE /items/:id/invitations/:invId (Cancel / revoke invitation)
+sharingRouter.delete(
+  '/items/:id/invitations/:invId',
+  requireAuth,
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = SharingService.revokeItemInvitation({
+        actorId: req.user!.id,
+        itemId: req.params.id,
+        invitationId: req.params.invId,
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /invitations/verify (Public token verification)
+sharingRouter.get(
+  '/invitations/verify',
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const token = req.query.token as string;
+      const result = SharingService.verifyInvitation(token);
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /invitations/accept (Accept invitation while authenticated as recipient)
+sharingRouter.post(
+  '/invitations/accept',
+  requireAuth,
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token } = acceptItemInvitationSchema.parse(req.body);
+      const result = SharingService.acceptItemInvitation({
+        userId: req.user!.id,
+        userEmail: req.user!.email,
+        rawToken: token,
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+);

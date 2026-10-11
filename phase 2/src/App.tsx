@@ -13,6 +13,8 @@ import { AuthScreen } from './components/AuthScreen';
 import { LockScreen } from './components/LockScreen';
 import { ToastContainer } from './components/ToastContainer';
 
+import { AcceptInviteModal } from './components/AcceptInviteModal';
+
 const MainLayout: React.FC = () => {
   const { currentUser, isLocked, activeTab, selectedItemId } = useVault();
 
@@ -21,6 +23,7 @@ const MainLayout: React.FC = () => {
     return (
       <>
         <AuthScreen />
+        <AcceptInviteModal />
         <ToastContainer />
       </>
     );
@@ -31,6 +34,7 @@ const MainLayout: React.FC = () => {
     return (
       <>
         <LockScreen />
+        <AcceptInviteModal />
         <ToastContainer />
       </>
     );
@@ -68,6 +72,7 @@ const MainLayout: React.FC = () => {
       <AddEditModal />
       <ShareAccessModal />
       <CategoryModal />
+      <AcceptInviteModal />
       <ToastContainer />
     </div>
   );

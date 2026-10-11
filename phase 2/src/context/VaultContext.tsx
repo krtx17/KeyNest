@@ -6,6 +6,8 @@ import {
   SharePermission,
   ToastNotification,
   CurrentUser,
+  ItemInvitation,
+  VerifiedInvitationInfo,
 } from '../types/vault';
 import {
   CURRENT_USER,
@@ -55,6 +57,22 @@ interface VaultContextType {
   addTeammate: (name: string, email: string) => Teammate;
   shareItem: (itemId: string, teammateId: string, permission: SharePermission) => void;
   removeShare: (itemId: string, teammateId: string) => void;
+
+  // Email Invitations & Acceptance
+  invitationsMap: Record<string, ItemInvitation[]>;
+  sendItemInvite: (
+    itemId: string,
+    recipientName: string,
+    recipientEmail: string,
+    permission: SharePermission,
+    serviceName?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  listItemInvites: (itemId: string) => Promise<ItemInvitation[]>;
+  cancelItemInvite: (itemId: string, invitationId: string) => Promise<boolean>;
+  verifyInviteToken: (token: string) => Promise<VerifiedInvitationInfo | null>;
+  acceptInviteToken: (token: string) => Promise<{ success: boolean; itemId?: string; error?: string }>;
+  pendingInviteToken: string | null;
+  setPendingInviteToken: (token: string | null) => void;
 
   // Categories
   categories: Category[];
@@ -170,6 +188,26 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return INITIAL_TEAMMATES;
   });
 
+  const [invitationsMap, setInvitationsMap] = useState<Record<string, ItemInvitation[]>>(() => {
+    const saved = localStorage.getItem(`${storageKey}_invitations`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  });
+
+  const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('invite') || null;
+    }
+    return null;
+  });
+
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -199,6 +237,12 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.setItem(`keynest_data_${currentUser.id}_teammates`, JSON.stringify(teammates));
     }
   }, [teammates, currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem(`keynest_data_${currentUser.id}_invitations`, JSON.stringify(invitationsMap));
+    }
+  }, [invitationsMap, currentUser]);
 
   const showToast = useCallback((toastData: Omit<ToastNotification, 'id'>) => {
     const id = 'toast-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
@@ -247,6 +291,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setCategories(savedCats ? JSON.parse(savedCats) : []);
           const savedTeammates = localStorage.getItem(`keynest_data_${user.id}_teammates`);
           setTeammates(savedTeammates ? JSON.parse(savedTeammates) : []);
+          const savedInvites = localStorage.getItem(`keynest_data_${user.id}_invitations`);
+          setInvitationsMap(savedInvites ? JSON.parse(savedInvites) : {});
 
           showToast({
             title: 'Welcome back',
@@ -287,6 +333,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCategories(savedCats ? JSON.parse(savedCats) : []);
         const savedTeammates = localStorage.getItem(`keynest_data_${user.id}_teammates`);
         setTeammates(savedTeammates ? JSON.parse(savedTeammates) : []);
+        const savedInvites = localStorage.getItem(`keynest_data_${user.id}_invitations`);
+        setInvitationsMap(savedInvites ? JSON.parse(savedInvites) : {});
 
         showToast({
           title: 'Welcome to KeyNest',
@@ -360,6 +408,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setItems([]);
     setCategories([]);
     setTeammates([]);
+    setInvitationsMap({});
 
     showToast({
       title: 'Signed out',
@@ -569,6 +618,254 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [teammates, showToast]
   );
 
+  // Email Invitations & Acceptance
+  const sendItemInvite = useCallback(
+    async (
+      itemId: string,
+      recipientName: string,
+      recipientEmail: string,
+      permission: SharePermission,
+      serviceName?: string
+    ): Promise<{ success: boolean; error?: string }> => {
+      const token = sessionStorage.getItem('keynest_token');
+      const item = items.find((i) => i.id === itemId);
+      const name = serviceName || item?.serviceName || 'Shared Password';
+
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/items/${itemId}/invitations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              recipientName,
+              recipientEmail,
+              permission,
+              serviceName: name,
+            }),
+          });
+
+          if (res.status === 503) {
+            const errData = await res.json().catch(() => ({}));
+            const errMsg =
+              errData.error?.message ||
+              'Email delivery is not configured on the server. Please set RESEND_API_KEY or SMTP credentials to send invitations.';
+            return { success: false, error: errMsg };
+          }
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            const errMsg = errData.error?.message || 'Failed to dispatch email invitation.';
+            return { success: false, error: errMsg };
+          }
+
+          const createdInvite: ItemInvitation = await res.json();
+          setInvitationsMap((prev) => {
+            const currentList = prev[itemId] || [];
+            return {
+              ...prev,
+              [itemId]: [createdInvite, ...currentList.filter((inv) => inv.id !== createdInvite.id)],
+            };
+          });
+
+          showToast({
+            title: 'Invitation sent',
+            message: `A secure email invitation was sent to ${recipientEmail}.`,
+            type: 'success',
+          });
+          return { success: true };
+        } catch (err: any) {
+          return {
+            success: false,
+            error:
+              err?.message ||
+              'Could not reach the server to send the email invitation. Please ensure backend is running.',
+          };
+        }
+      }
+
+      // Standalone mode or unauthenticated
+      return {
+        success: false,
+        error:
+          'Email delivery is not configured on the server. Please sign in with a configured backend provider to send invitations.',
+      };
+    },
+    [items, showToast]
+  );
+
+  const listItemInvites = useCallback(
+    async (itemId: string): Promise<ItemInvitation[]> => {
+      const token = sessionStorage.getItem('keynest_token');
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/items/${itemId}/invitations`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const list: ItemInvitation[] = data.invitations || [];
+            setInvitationsMap((prev) => ({
+              ...prev,
+              [itemId]: list,
+            }));
+            return list;
+          }
+        } catch {
+          // ignore network failure and return local cache
+        }
+      }
+      return invitationsMap[itemId] || [];
+    },
+    [invitationsMap]
+  );
+
+  const cancelItemInvite = useCallback(
+    async (itemId: string, invitationId: string): Promise<boolean> => {
+      const token = sessionStorage.getItem('keynest_token');
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/items/${itemId}/invitations/${invitationId}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            showToast({
+              title: 'Error canceling invitation',
+              message: data.error?.message || 'Could not cancel invitation.',
+              type: 'warning',
+            });
+            return false;
+          }
+        } catch {
+          // local fallback
+        }
+      }
+
+      setInvitationsMap((prev) => {
+        const currentList = prev[itemId] || [];
+        return {
+          ...prev,
+          [itemId]: currentList.map((inv) =>
+            inv.id === invitationId
+              ? { ...inv, status: 'revoked' as const, revokedAt: new Date().toISOString() }
+              : inv
+          ),
+        };
+      });
+
+      showToast({
+        title: 'Invitation canceled',
+        message: 'The recipient will no longer be able to use that invitation link.',
+        type: 'info',
+      });
+      return true;
+    },
+    [showToast]
+  );
+
+  const verifyInviteToken = useCallback(
+    async (token: string): Promise<VerifiedInvitationInfo | null> => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/invitations/verify?token=${encodeURIComponent(token)}`);
+        if (!res.ok) {
+          return null;
+        }
+        return (await res.json()) as VerifiedInvitationInfo;
+      } catch {
+        return null;
+      }
+    },
+    []
+  );
+
+  const acceptInviteToken = useCallback(
+    async (token: string): Promise<{ success: boolean; itemId?: string; error?: string }> => {
+      const authToken = sessionStorage.getItem('keynest_token');
+      if (!authToken) {
+        return {
+          success: false,
+          error: 'Please sign in or create an account with the invited email to accept.',
+        };
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/invitations/accept`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ token }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          return {
+            success: false,
+            error: errData.error?.message || 'Failed to accept invitation.',
+          };
+        }
+
+        const data = await res.json();
+        const acceptedItemId = data.itemId;
+        const serviceName = data.serviceName || 'Shared Password';
+
+        setItems((prev) => {
+          const existing = prev.find((i) => i.id === acceptedItemId);
+          if (existing) {
+            return prev.map((i) => (i.id === acceptedItemId ? { ...i, isShared: true } : i));
+          }
+          const now = new Date().toISOString().split('T')[0];
+          const visuals = getServiceVisuals(serviceName);
+          const newItem: VaultItem = {
+            id: acceptedItemId,
+            serviceName,
+            username: currentUser?.email || 'teammate',
+            password: '••••••••••••',
+            notes: 'Shared with you via email invitation.',
+            isShared: true,
+            sharedWith: [],
+            createdAt: now,
+            updatedAt: now,
+            iconBg: visuals.iconBg,
+            iconInitials: visuals.iconInitials,
+          };
+          return [newItem, ...prev];
+        });
+
+        setSelectedItemId(acceptedItemId);
+        setActiveTab('shared');
+        setPendingInviteToken(null);
+
+        if (typeof window !== 'undefined' && window.history) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        showToast({
+          title: 'Invitation accepted',
+          message: `You now have access to ${serviceName}. The password remains hidden until you choose to reveal it.`,
+          type: 'success',
+        });
+
+        return { success: true, itemId: acceptedItemId };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err?.message || 'Network error while accepting invitation.',
+        };
+      }
+    },
+    [currentUser, showToast]
+  );
+
   // Categories
   const addCategory = useCallback(
     (name: string, color?: string) => {
@@ -730,6 +1027,15 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addTeammate,
         shareItem,
         removeShare,
+
+        invitationsMap,
+        sendItemInvite,
+        listItemInvites,
+        cancelItemInvite,
+        verifyInviteToken,
+        acceptInviteToken,
+        pendingInviteToken,
+        setPendingInviteToken,
 
         categories,
         addCategory,
